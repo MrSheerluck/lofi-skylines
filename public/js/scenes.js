@@ -437,9 +437,9 @@ function drawTokyo(ctx, t, weather, reducedMotion) {
   ctx.fillStyle = "#2b192d";
   ctx.fillRect(0, 196, 65, 3);
   ctx.fillRect(W - 70, 196, 70, 3);
-  drawNeonSign(ctx, { x: 14, y: 201, w: 31, h: 7, text: "RAMEN", color: "#ffcf82", bg: "#1e1017", t });
-  drawNeonSign(ctx, { x: 48, y: 201, w: 18, h: 7, text: "BAR", color: "#ff87c8", bg: "#1e1017", t });
-  drawNeonSign(ctx, { x: 421, y: 201, w: 35, h: 7, text: "SUSHI", color: "#8de5df", bg: "#16121d", t });
+  drawNeonSign(ctx, { x: 24, y: 201, w: 30, h: 7, text: "RAMEN", color: "#ffcf82", bg: "#1e1017", t });
+  drawNeonSign(ctx, { x: 55, y: 201, w: 14, h: 7, text: "BAR", color: "#ff87c8", bg: "#1e1017", t });
+  drawNeonSign(ctx, { x: 414, y: 201, w: 34, h: 7, text: "SUSHI", color: "#8de5df", bg: "#16121d", t });
   ctx.fillStyle = "#d84f5e";
   ctx.fillRect(0, 211, 70, 3);
   ctx.fillRect(W - 78, 211, 78, 3);
