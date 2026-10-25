@@ -38,6 +38,45 @@ const STYLE_CONFIG = {
     melody: [0, 8],
     drumKind: "none",
   },
+  bossa: {
+    bpm: 88,
+    swing: 0.07,
+    pad: 0.22,
+    chordHits: [0, 8],
+    kick: [0, 10],
+    snare: [4, 12],
+    hats: [2, 6, 10, 14],
+    openHat: [],
+    bass: [0, 6, 8, 14],
+    melody: [0, 2, 4, 6, 8, 10, 12, 14],
+    drumKind: "brush",
+  },
+  synth: {
+    bpm: 94,
+    swing: 0.02,
+    pad: 0.55,
+    chordHits: [0, 8],
+    kick: [0, 8],
+    snare: [4, 12],
+    hats: [0, 2, 4, 6, 8, 10, 12, 14],
+    openHat: [14],
+    bass: [0, 4, 8, 12],
+    melody: [0, 3, 6, 10, 12, 14],
+    drumKind: "boom",
+  },
+  house: {
+    bpm: 112,
+    swing: 0,
+    pad: 0.4,
+    chordHits: [0, 8],
+    kick: [0, 4, 8, 12],
+    snare: [4, 12],
+    hats: [0, 2, 4, 6, 8, 10, 12, 14],
+    openHat: [6, 14],
+    bass: [0, 4, 8, 12],
+    melody: [0, 3, 6, 10, 12, 14],
+    drumKind: "house",
+  },
 };
 
 const CHORDS = {
@@ -60,6 +99,12 @@ const CHORDS = {
   Bm11: { notes: [47, 50, 54, 57, 62], root: 35 },
   Gmaj9: { notes: [43, 47, 50, 54, 59], root: 31 },
   A7sus: { notes: [45, 50, 52, 55, 59], root: 33 },
+  Em7: { notes: [52, 55, 59, 62], root: 40 },
+  A7: { notes: [45, 49, 52, 55], root: 33 },
+  Dmaj7: { notes: [50, 54, 57, 61], root: 38 },
+  G6: { notes: [55, 59, 62, 64], root: 43 },
+  Bm7: { notes: [47, 50, 54, 57], root: 35 },
+  E9: { notes: [52, 56, 59, 62, 66], root: 40 },
 };
 
 const PROGRESSIONS = {
@@ -77,6 +122,24 @@ const PROGRESSIONS = {
   ambient: [
     ["Dmaj9", "Bm11", "Gmaj9", "A7sus"],
     ["Bm11", "Gmaj9", "Dmaj9", "A7sus"],
+  ],
+  bossa: [
+    ["Cmaj9", "A7b9", "Dm9", "G13"],
+    ["Fmaj9", "G13", "Em7", "A7"],
+    ["Dm9", "G13", "Cmaj9", "A7b9"],
+    ["Fmaj9", "Em7", "Dm9", "G13"],
+  ],
+  synth: [
+    ["Am9", "Fmaj9", "Cmaj9", "G13"],
+    ["Dm9", "G13", "Em7", "Am9"],
+    ["Fmaj9", "G13", "Em7", "Am9"],
+    ["Dmaj7", "Bm7", "Gmaj9", "A7"],
+  ],
+  house: [
+    ["Am9", "Fmaj9", "Cmaj9", "G13"],
+    ["Dm9", "G13", "Cmaj9", "Fmaj9"],
+    ["Fmaj9", "Em7", "Dm9", "Cmaj9"],
+    ["Am9", "Fmaj9", "G13", "Cmaj9"],
   ],
 };
 
@@ -164,7 +227,7 @@ export class LofiEngine {
     this.musicBus.connect(highpass);
 
     this.ambienceBus = ctx.createGain();
-    this.ambienceBus.gain.value = this.citySounds ? curve(this.ambienceVol) * 0.85 : 0;
+    this.ambienceBus.gain.value = this.citySounds ? curve(this.ambienceVol) * 0.95 : 0;
     this.ambienceBus.connect(highpass);
 
     const impulseLength = Math.floor(ctx.sampleRate * 2.6);
@@ -240,16 +303,20 @@ export class LofiEngine {
       return { source, filter, gain };
     };
 
-    this.rainLayer = makeLayer("bandpass", 1250, 0.45, 0.5);
+    // Rain: a high hiss with a close patter layer underneath.
+    this.rainLayer = makeLayer("bandpass", 1500, 0.42, 0);
     const rainTop = ctx.createBiquadFilter();
     rainTop.type = "lowpass";
-    rainTop.frequency.value = 5500;
+    rainTop.frequency.value = 6000;
     this.rainLayer.filter.disconnect();
     this.rainLayer.filter.connect(rainTop);
     rainTop.connect(this.rainLayer.gain);
+    this.rainPatter = makeLayer("bandpass", 720, 0.85, 0);
 
-    this.windLayer = makeLayer("lowpass", 420, 0.4, 0.25);
-    this.humLayer = makeLayer("lowpass", 180, 0.7, 0.18);
+    // Snow: low wind with a faint high hush.
+    this.windLayer = makeLayer("lowpass", 420, 0.4, 0);
+    this.snowHush = makeLayer("highpass", 2900, 0.35, 0);
+    this.humLayer = makeLayer("lowpass", 175, 0.65, 0);
 
     const windLfo = ctx.createOscillator();
     windLfo.frequency.value = 0.075;
@@ -259,6 +326,24 @@ export class LofiEngine {
     windDepth.connect(this.windLayer.filter.frequency);
     windLfo.start();
 
+    const gustLfo = ctx.createOscillator();
+    gustLfo.frequency.value = 0.055;
+    const gustDepth = ctx.createGain();
+    gustDepth.gain.value = 0.07;
+    gustLfo.connect(gustDepth);
+    gustDepth.connect(this.windLayer.gain.gain);
+    gustLfo.start();
+
+    const patterLfo = ctx.createOscillator();
+    patterLfo.frequency.value = 0.61;
+    const patterDepth = ctx.createGain();
+    patterDepth.gain.value = 0.05;
+    patterLfo.connect(patterDepth);
+    patterDepth.connect(this.rainPatter.gain.gain);
+    patterLfo.start();
+
+    this.nextCricketAt = ctx.currentTime + 2 + Math.random() * 3;
+    this.nextThunderAt = ctx.currentTime + 9 + Math.random() * 14;
     this.applyWeatherLayers();
   }
 
@@ -266,14 +351,94 @@ export class LofiEngine {
     if (!this.ctx || !this.rainLayer) return;
     const now = this.ctx.currentTime;
     const targets = {
-      rain: { rain: 0.6, wind: 0.12, hum: 0.1 },
-      snow: { rain: 0, wind: 0.5, hum: 0.12 },
-      clear: { rain: 0, wind: 0.08, hum: 0.26 },
-    }[this.weather] || { rain: 0.4, wind: 0.1, hum: 0.1 };
+      rain: { rain: 0.72, patter: 0.38, wind: 0.06, hush: 0, hum: 0.08 },
+      snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1 },
+      clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3 },
+    }[this.weather] || { rain: 0.5, patter: 0.2, wind: 0.08, hush: 0, hum: 0.1 };
 
-    this.rainLayer.gain.gain.setTargetAtTime(targets.rain, now, 0.8);
-    this.windLayer.gain.gain.setTargetAtTime(targets.wind, now, 0.8);
-    this.humLayer.gain.gain.setTargetAtTime(targets.hum, now, 0.8);
+    this.rainLayer.gain.gain.setTargetAtTime(targets.rain, now, 0.7);
+    this.rainPatter.gain.gain.setTargetAtTime(targets.patter, now, 0.7);
+    this.windLayer.gain.gain.setTargetAtTime(targets.wind, now, 0.7);
+    this.snowHush.gain.gain.setTargetAtTime(targets.hush, now, 0.7);
+    this.humLayer.gain.gain.setTargetAtTime(targets.hum, now, 0.7);
+  }
+
+  playWeatherTransition(weather) {
+    if (!this.ctx || !this.playing || !this.citySounds) return;
+    const ctx = this.ctx;
+    const time = ctx.currentTime + 0.03;
+    const source = ctx.createBufferSource();
+    source.buffer = this.noiseBuffer(1.4);
+    const filter = ctx.createBiquadFilter();
+    filter.type =
+      weather === "rain" ? "bandpass" : weather === "snow" ? "lowpass" : "highpass";
+    filter.frequency.value = weather === "rain" ? 1400 : weather === "snow" ? 650 : 2400;
+    filter.Q.value = weather === "rain" ? 0.6 : 0.35;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(weather === "clear" ? 0.018 : 0.045, time + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 1.1);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ambienceBus);
+    source.start(time);
+    source.stop(time + 1.2);
+  }
+
+  scheduleCricket(time = this.ctx.currentTime + 0.1) {
+    if (!this.ctx || this.weather !== "clear") return;
+    const ctx = this.ctx;
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = (Math.random() * 2 - 1) * 0.65;
+    panner.connect(this.ambienceBus);
+    const chirps = 2 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < chirps; i += 1) {
+      const start = time + i * (0.07 + Math.random() * 0.035);
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(3900 + Math.random() * 900, start);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.linearRampToValueAtTime(0.012 + Math.random() * 0.006, start + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.045);
+      osc.connect(gain);
+      gain.connect(panner);
+      osc.start(start);
+      osc.stop(start + 0.06);
+    }
+  }
+
+  scheduleThunder(time = this.ctx.currentTime + 0.3) {
+    if (!this.ctx || this.weather !== "rain") return;
+    const ctx = this.ctx;
+    const source = ctx.createBufferSource();
+    source.buffer = this.noiseBuffer(3.2, true);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 135;
+    filter.Q.value = 0.7;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(0.085, time + 0.45);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 3.2);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ambienceBus);
+    source.start(time);
+    source.stop(time + 3.3);
+
+    const rumble = ctx.createOscillator();
+    rumble.type = "sine";
+    rumble.frequency.setValueAtTime(50, time);
+    rumble.frequency.exponentialRampToValueAtTime(34, time + 2.2);
+    const rumbleGain = ctx.createGain();
+    rumbleGain.gain.setValueAtTime(0.0001, time);
+    rumbleGain.gain.linearRampToValueAtTime(0.03, time + 0.5);
+    rumbleGain.gain.exponentialRampToValueAtTime(0.0001, time + 2.6);
+    rumble.connect(rumbleGain);
+    rumbleGain.connect(this.ambienceBus);
+    rumble.start(time);
+    rumble.stop(time + 2.7);
   }
 
   startVinyl() {
@@ -349,6 +514,16 @@ export class LofiEngine {
       this.scheduleStep(this.step, this.nextStepTime, stepDuration);
       this.nextStepTime += stepDuration;
       this.step += 1;
+    }
+
+    const now = ctx.currentTime;
+    if (this.citySounds && this.weather === "clear" && now >= this.nextCricketAt) {
+      this.scheduleCricket(now + 0.12 + Math.random() * 0.2);
+      this.nextCricketAt = now + 1.8 + Math.random() * 3.8;
+    }
+    if (this.citySounds && this.weather === "rain" && now >= this.nextThunderAt) {
+      this.scheduleThunder(now + 0.2 + Math.random() * 1.2);
+      this.nextThunderAt = now + 22 + Math.random() * 30;
     }
   }
 
@@ -749,6 +924,30 @@ export class LofiEngine {
   next(seed) {
     this.seed = seed >>> 0;
     this.buildSong();
+    this.step = 0;
+
+    if (!this.ctx) {
+      this.nextStepTime = 0;
+      return;
+    }
+    if (!this.playing) {
+      this.nextStepTime = 0;
+      return;
+    }
+
+    // Fade the old track under, then drop the new one in on the next beat.
+    const ctx = this.ctx;
+    const now = ctx.currentTime;
+    const target = Math.max(0.0001, curve(this.musicVol) * 0.92);
+    this.musicBus.gain.cancelScheduledValues(now);
+    this.musicBus.gain.setValueAtTime(
+      Math.max(0.0001, this.musicBus.gain.value),
+      now,
+    );
+    this.musicBus.gain.exponentialRampToValueAtTime(0.0001, now + 0.075);
+    this.musicBus.gain.setValueAtTime(0.0001, now + 0.16);
+    this.musicBus.gain.exponentialRampToValueAtTime(target, now + 0.34);
+    this.nextStepTime = now + 0.17;
   }
 
   setStyle(style) {
@@ -773,12 +972,17 @@ export class LofiEngine {
   setWeather(weather) {
     this.weather = weather;
     this.applyWeatherLayers();
+    if (this.ctx) {
+      if (weather === "rain") this.nextThunderAt = this.ctx.currentTime + 5 + Math.random() * 9;
+      if (weather === "clear") this.nextCricketAt = this.ctx.currentTime + 1.2 + Math.random() * 2.4;
+    }
+    if (this.ctx && this.playing) this.playWeatherTransition(weather);
   }
 
   setCitySounds(enabled) {
     this.citySounds = enabled;
     if (!this.ctx) return;
-    const target = enabled ? curve(this.ambienceVol) * 0.85 : 0;
+    const target = enabled ? curve(this.ambienceVol) * 0.95 : 0;
     this.ambienceBus.gain.setTargetAtTime(target, this.ctx.currentTime, 0.08);
   }
 
@@ -792,7 +996,7 @@ export class LofiEngine {
   setAmbienceVolume(value) {
     this.ambienceVol = value;
     if (this.ctx) {
-      const target = this.citySounds ? curve(value) * 0.85 : 0;
+      const target = this.citySounds ? curve(value) * 0.95 : 0;
       this.ambienceBus.gain.setTargetAtTime(target, this.ctx.currentTime, 0.05);
     }
   }

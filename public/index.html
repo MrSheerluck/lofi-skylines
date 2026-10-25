@@ -221,23 +221,7 @@
             <svg class="icon"><use href="#i-close"></use></svg>
           </button>
         </div>
-        <div class="vibe-list" id="vibeList">
-          <button class="vibe" data-style="jazzhop" type="button">
-            <span class="vibe-icon"><svg class="icon"><use href="#i-music"></use></svg></span>
-            <span class="vibe-copy"><strong>Jazzhop</strong><small>Dusty Rhodes, swung drums, 76 BPM</small></span>
-            <span class="vibe-check"><svg class="icon"><use href="#i-check"></use></svg></span>
-          </button>
-          <button class="vibe" data-style="piano" type="button">
-            <span class="vibe-icon"><svg class="icon"><use href="#i-headphones"></use></svg></span>
-            <span class="vibe-copy"><strong>Felt piano</strong><small>Soft keys, brushed drums, 68 BPM</small></span>
-            <span class="vibe-check"><svg class="icon"><use href="#i-check"></use></svg></span>
-          </button>
-          <button class="vibe" data-style="ambient" type="button">
-            <span class="vibe-icon"><svg class="icon"><use href="#i-moon"></use></svg></span>
-            <span class="vibe-copy"><strong>Ambient</strong><small>Warm pads, barely a beat, 56 BPM</small></span>
-            <span class="vibe-check"><svg class="icon"><use href="#i-check"></use></svg></span>
-          </button>
-        </div>
+        <div class="vibe-list" id="vibeList"></div>
         <p class="sheet-note">A new style begins on the next bar. Everything is synthesized — no samples, no streams.</p>
       </dialog>
 
@@ -302,12 +286,12 @@
           <div><dt><kbd>T</kbd></dt><dd>Focus timer</dd></div>
           <div><dt><kbd>F</kbd></dt><dd>Fullscreen</dd></div>
           <div><dt><kbd>M</kbd></dt><dd>Mute / unmute</dd></div>
-          <div><dt><kbd>A</kbd></dt><dd>City sounds on / off</dd></div>
+          <div><dt><kbd>A</kbd></dt><dd>Weather &amp; city sounds</dd></div>
           <div><dt><kbd>1–3</kbd></dt><dd>Jump to a city</dd></div>
           <div><dt><kbd>← →</kbd></dt><dd>Previous / next city</dd></div>
           <div><dt><kbd>?</kbd></dt><dd>This panel</dd></div>
         </dl>
-        <p class="sheet-note">Rain and music both respond to the weather. Try Tokyo in snow.</p>
+        <p class="sheet-note">Rain, wind and clear-night crickets follow the weather. Try Tokyo in snow.</p>
       </dialog>
 
       <dialog class="sheet sheet-small" id="guideDialog" aria-labelledby="guideTitle">
@@ -346,8 +330,11 @@
             lofi music composed live in your browser. No account, no downloads, no ads.
           </p>
           <p>
-            Every scene is drawn on a 480 × 270 canvas, one pixel at a time. Every note is
-            synthesized with the Web Audio API. Nothing is streamed, sampled, or pre-recorded.
+            Every scene is drawn on a 480 × 270 canvas, one pixel at a time. Every note of the
+            music — and every drop of rain, gust of wind and clear-night cricket — is synthesized
+            with the Web Audio API. Pick from six late-night styles; the queue moves on by itself
+            when a track ends, or press Next to skip ahead. Nothing is streamed, sampled, or
+            pre-recorded.
           </p>
           <p class="about-meta">
             Built as a minimal tribute to <a href="https://loficities.com" target="_blank" rel="noreferrer">Lofi Cities</a>.

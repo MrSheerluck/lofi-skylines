@@ -14,6 +14,15 @@ const WEATHER_ICON = {
   snow: "#i-weather-snow",
   clear: "#i-weather-clear",
 };
+const VIBE_ICONS = {
+  jazzhop: "#i-music",
+  piano: "#i-headphones",
+  ambient: "#i-moon",
+  bossa: "#i-leaf",
+  synth: "#i-sunrise",
+  house: "#i-grid",
+};
+const TRACK_BARS = 32;
 const TOUR_DELAY = 90_000;
 
 const KEYS = {
@@ -72,6 +81,9 @@ const state = {
   tourTimer: 0,
   track: null,
   queue: [],
+  trackTimer: 0,
+  trackEndAt: 0,
+  trackRemaining: 0,
   musicVol: clampNumber(Number(read(KEYS.music, "72")), 0, 100, 72),
   ambienceVol: clampNumber(Number(read(KEYS.ambience, "55")), 0, 100, 55),
   timer: {
@@ -224,7 +236,9 @@ function updateWeatherUI() {
 function updateSoundsUI() {
   els.radioBtn.setAttribute("aria-pressed", String(state.citySounds));
   els.radioState.textContent = state.citySounds ? "on" : "off";
-  els.radioBtn.title = state.citySounds ? "City sounds on (A)" : "City sounds off (A)";
+  els.radioBtn.title = state.citySounds
+    ? "Weather & city sounds on (A)"
+    : "Weather & city sounds off (A)";
 }
 
 function updateTourUI() {
@@ -289,9 +303,81 @@ function refreshTitles({ newSeed = true } = {}) {
   const seed = newSeed ? randomSeed() : state.track?.seed || randomSeed();
   state.track = makeTrack(state.city, state.weather, state.style, seed);
   state.queue = makeQueue(state.city, state.weather, state.style, state.track.seed, 4);
+  state.trackRemaining = trackDurationMs();
   updateTrackUI();
   updateMediaSession();
-  if (dialogs.queue.open) renderQueue();
+  if (state.playing) armTrackTimer();
+  else clearTrackTimer();
+}
+
+function trackDurationMs() {
+  const bpm = (STYLES[state.style] || STYLES.jazzhop).bpm;
+  return Math.round((60 / bpm) * 4 * TRACK_BARS * 1000);
+}
+
+function clearTrackTimer() {
+  if (state.trackTimer) {
+    window.clearTimeout(state.trackTimer);
+    state.trackTimer = 0;
+  }
+  state.trackEndAt = 0;
+}
+
+function armTrackTimer(ms = state.trackRemaining || trackDurationMs()) {
+  clearTrackTimer();
+  state.trackRemaining = Math.max(1000, ms);
+  state.trackEndAt = Date.now() + state.trackRemaining;
+  state.trackTimer = window.setTimeout(() => {
+    state.trackTimer = 0;
+    state.trackEndAt = 0;
+    state.trackRemaining = trackDurationMs();
+    nextTrack({ auto: true });
+  }, state.trackRemaining);
+}
+
+function pauseTrackTimer() {
+  if (state.trackEndAt) {
+    state.trackRemaining = Math.max(1000, state.trackEndAt - Date.now());
+  }
+  clearTrackTimer();
+}
+
+function queuedTrack(seed = randomSeed()) {
+  const style = STYLES[state.style] || STYLES.jazzhop;
+  const track = makeTrack(state.city, state.weather, state.style, seed);
+  return {
+    title: track.title,
+    seed: track.seed,
+    subtitle: `${style.label.toLowerCase()} · ${style.bpm} bpm`,
+  };
+}
+
+function queueItemToTrack(item) {
+  const style = STYLES[state.style] || STYLES.jazzhop;
+  return {
+    title: item.title,
+    seed: item.seed,
+    style,
+    subtitle: `${style.label.toLowerCase()} · ${style.bpm} bpm · generated live`,
+  };
+}
+
+function playTrack(track, { auto = false } = {}) {
+  state.track = track;
+  state.trackRemaining = trackDurationMs();
+  if (state.started) {
+    audio.next(track.seed);
+  } else {
+    audio.seed = track.seed;
+    audio.buildSong();
+  }
+  updateTrackUI();
+  updateMediaSession();
+  if (state.playing) armTrackTimer();
+  else clearTrackTimer();
+  if (auto) showToast(`Now playing · ${track.title}`, 2400);
+  else if (state.playing) showToast(`Playing · ${track.title}`, 2200);
+  else showToast(`Ready · ${track.title}`, 2000);
 }
 
 function setWeather(weather, { persist = true, silent = false, refresh = true } = {}) {
@@ -322,11 +408,15 @@ function setCitySounds(enabled, { silent = false } = {}) {
   audio.setCitySounds(enabled);
   write(KEYS.sounds, enabled ? "1" : "0");
   updateSoundsUI();
-  if (!silent) showToast(enabled ? "City sounds on" : "City sounds off");
+  if (!silent) showToast(enabled ? "Weather & city sounds on" : "Weather & city sounds off");
 }
 
 function setStyle(style, { silent = false } = {}) {
   if (!STYLES[style]) return;
+  if (style === state.style) {
+    updateVibeUI();
+    return;
+  }
   state.style = style;
   write(KEYS.style, style);
   audio.setStyle(style);
@@ -393,6 +483,7 @@ async function togglePlay() {
   if (state.playing) {
     await audio.pause();
     state.playing = false;
+    pauseTrackTimer();
     updatePlayUI();
     return;
   }
@@ -407,6 +498,8 @@ async function togglePlay() {
     state.started = true;
     state.playing = true;
     if (!state.track) refreshTitles();
+    if (state.trackRemaining <= 0) state.trackRemaining = trackDurationMs();
+    armTrackTimer(state.trackRemaining);
     updatePlayUI();
   } catch (error) {
     console.error(error);
@@ -416,19 +509,10 @@ async function togglePlay() {
   }
 }
 
-function nextTrack({ silent = false } = {}) {
-  const track = makeTrack(state.city, state.weather, state.style, randomSeed());
-  state.track = track;
-  state.queue = makeQueue(state.city, state.weather, state.style, track.seed, 4);
-  if (state.started) audio.next(track.seed);
-  else {
-    audio.seed = track.seed;
-    audio.buildSong();
-  }
-  updateTrackUI();
-  if (dialogs.queue.open) renderQueue();
-  updateMediaSession();
-  if (!silent) showToast(`Up next · ${track.title}`);
+function nextTrack({ auto = false } = {}) {
+  const nextItem = state.queue.shift() || queuedTrack();
+  state.queue.push(queuedTrack());
+  playTrack(queueItemToTrack(nextItem), { auto });
 }
 
 function updateVolumeUI() {
@@ -604,12 +688,14 @@ function renderQueue() {
   const list = $("#queueList");
   if (!list) return;
   list.replaceChildren();
+  const style = STYLES[state.style] || STYLES.jazzhop;
+  const status = state.playing ? "playing" : state.started ? "paused" : "ready";
   const current = document.createElement("li");
   current.className = "queue-item is-current";
   current.innerHTML = `
     <span class="queue-index">Now</span>
-    <span class="queue-copy"><strong></strong><small>${STYLES[state.style].label} · playing</small></span>
-    <span class="queue-current">${state.playing ? "Playing" : "Paused"}</span>
+    <span class="queue-copy"><strong></strong><small>${style.label} · ${status}</small></span>
+    <span class="queue-current">${state.playing ? "Playing" : state.started ? "Paused" : "Ready"}</span>
   `;
   $("strong", current).textContent = state.track.title;
   list.append(current);
@@ -626,24 +712,37 @@ function renderQueue() {
     $("strong", button).textContent = item.title;
     $("small", button).textContent = item.subtitle;
     button.addEventListener("click", () => {
-      state.track = {
-        ...item,
-        style: STYLES[state.style],
-        subtitle: `${STYLES[state.style].label.toLowerCase()} · ${STYLES[state.style].bpm} bpm · generated live`,
-      };
-      if (state.started) audio.next(item.seed);
-      else {
-        audio.seed = item.seed;
-        audio.buildSong();
-      }
-      updateTrackUI();
-      updateMediaSession();
+      const queueIndex = state.queue.indexOf(item);
+      if (queueIndex >= 0) state.queue.splice(queueIndex, 1);
+      state.queue.push(queuedTrack());
+      playTrack(queueItemToTrack(item));
       closeDialog(dialogs.queue);
-      showToast(`Playing · ${item.title}`);
     });
     row.append(button);
     list.append(row);
   });
+}
+
+function buildVibeList() {
+  const list = $("#vibeList");
+  if (!list) return;
+  list.replaceChildren();
+  Object.values(STYLES).forEach((style) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "vibe";
+    button.dataset.style = style.id;
+    button.innerHTML = `<span class="vibe-icon"><svg class="icon"><use href="${
+      VIBE_ICONS[style.id] || "#i-music"
+    }"></use></svg></span>
+      <span class="vibe-copy"><strong></strong><small></small></span>
+      <span class="vibe-check"><svg class="icon"><use href="#i-check"></use></svg></span>`;
+    $("strong", button).textContent = style.label;
+    $("small", button).textContent = `${style.blurb} · ${style.bpm} BPM`;
+    button.addEventListener("click", () => setStyle(style.id));
+    list.append(button);
+  });
+  updateVibeUI();
 }
 
 function fillGuide() {
@@ -769,9 +868,6 @@ function bindUI() {
   $("#vibeBtn").addEventListener("click", () => {
     updateVibeUI();
     openDialog(dialogs.vibe);
-  });
-  $$("#vibeList .vibe").forEach((button) => {
-    button.addEventListener("click", () => setStyle(button.dataset.style));
   });
 
   $("#queueBtn").addEventListener("click", () => {
@@ -907,6 +1003,7 @@ function bindUI() {
 
 function init() {
   buildCityGrid();
+  buildVibeList();
   updateWeatherUI();
   updateSoundsUI();
   updateTourUI();
@@ -918,7 +1015,7 @@ function init() {
   updateClock();
   window.setInterval(updateClock, 1000);
   if (new URLSearchParams(location.search).has("debug")) {
-    window.__lofi = { audio, scene, state, showToast };
+    window.__lofi = { audio, scene, state, showToast, nextTrack, playTrack, armTrackTimer, trackDurationMs };
   }
   requestAnimationFrame(() => document.body.classList.add("is-ready"));
 }

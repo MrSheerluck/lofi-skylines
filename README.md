@@ -17,9 +17,14 @@ account, no ads.
 
 - **Three animated pixel cities** with rain, snow, clouds, traffic, trains,
   pedestrians, birds, blinking signs, reflections, and falling petals.
-- **Endless generative lofi** in three styles: jazzhop, felt piano, ambient.
-  Chords, bass, drums, melodies, vinyl crackle, and city ambience are scheduled
-  live with the Web Audio API.
+- **Endless generative lofi** in six styles: jazzhop, felt piano, ambient,
+  bossa, city synth, and lofi house. Chords, bass, drums, melodies, vinyl
+  crackle, and weather ambience are scheduled live with the Web Audio API.
+- **A real playlist:** Next plays the next track immediately, the queue rotates,
+  and tracks advance on their own after about one to two minutes.
+- **Weather sound beds:** rain hiss and close patter with occasional distant
+  thunder, wind and hush for snow, and a low city hum with crickets on clear
+  nights. Weather changes crossfade the ambience and add a short transition.
 - **City picker** with live previews and local times.
 - **Weather** (rain, snow, clear) that changes the scene and the sound bed.
 - **City tour**, a 25/50-minute focus timer, keyboard shortcuts, volume
