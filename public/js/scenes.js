@@ -20,6 +20,7 @@ import {
   drawRain,
   drawSnow,
   drawPetals,
+  drawLeaves,
   drawFog,
   drawWater,
   drawGlow,
@@ -564,17 +565,6 @@ function drawTokyo(ctx, t, weather, reducedMotion) {
     ctx.fillStyle = "#ffd37d";
     ctx.fillRect(433, 259, 1, 1);
   }
-
-  if (weather === "rain") {
-    drawRain(ctx, reducedMotion ? 0 : t, { count: 190, wind: 24, speed: 170 });
-    drawFog(ctx, reducedMotion ? 0 : t, { y: 203, alpha: 0.07, height: 14, color: "#ffb6c8" });
-    drawPetals(ctx, reducedMotion ? 0 : t, { count: 8, color: "#ffa8cc", speed: 4 });
-  } else if (weather === "snow") {
-    drawSnow(ctx, reducedMotion ? 0 : t, { count: 120, wind: 12, speed: 15 });
-    drawFog(ctx, reducedMotion ? 0 : t, { y: 200, alpha: 0.06, height: 15, color: "#d8c8ff" });
-  } else {
-    drawPetals(ctx, reducedMotion ? 0 : t, { count: 16, color: "#ffb3d4", speed: 5 });
-  }
 }
 
 function drawHaussmann(ctx, x, baseY, width, height, t, flip = false) {
@@ -1064,15 +1054,6 @@ function drawParis(ctx, t, weather, reducedMotion) {
   ctx.globalAlpha = 1;
 
   drawFog(ctx, reducedMotion ? 0 : t, { y: 204, alpha: 0.05, height: 12, color: "#f0c49b" });
-
-  if (weather === "rain") {
-    drawRain(ctx, reducedMotion ? 0 : t, { count: 95, wind: 12, speed: 120, maxAlpha: 0.3 });
-    drawFog(ctx, reducedMotion ? 0 : t, { y: 198, alpha: 0.06, height: 14, color: "#b8c8da" });
-  } else if (weather === "snow") {
-    drawSnow(ctx, reducedMotion ? 0 : t, { count: 85, wind: 10, speed: 12 });
-  } else {
-    drawPetals(ctx, reducedMotion ? 0 : t, { count: 9, color: "#e5bd7a", speed: 3 });
-  }
 }
 
 function drawEmpireState(ctx, cx, baseY, topY, t) {
@@ -1361,25 +1342,72 @@ function drawNewYork(ctx, t, weather, reducedMotion) {
   drawNeonSign(ctx, { x: 406, y: 172, w: 36, h: 9, text: "DELI", color: "#ffd18a", bg: "#17151b", t });
 
   drawBrooklynBridge(ctx, reducedMotion ? 0 : t, reducedMotion);
-
-  if (weather === "snow") {
-    drawSnow(ctx, reducedMotion ? 0 : t, { count: 155, wind: 14, speed: 16, maxY: 250 });
-    drawFog(ctx, reducedMotion ? 0 : t, { y: 198, alpha: 0.08, height: 16, color: "#dfeaf5" });
-  } else if (weather === "rain") {
-    drawRain(ctx, reducedMotion ? 0 : t, { count: 120, wind: 20, speed: 140, maxAlpha: 0.4 });
-  } else {
-    drawPetals(ctx, reducedMotion ? 0 : t, { count: 6, color: "#e8dcc0", speed: 2.5 });
-  }
 }
 
-const WEATHER_ICON = {
-  rain: "rain",
-  snow: "snow",
-  clear: "clear",
-};
+function drawLightning(ctx, t) {
+  const phase = mod(t + 4.2, 15);
+  if (phase > 0.12 && phase < 0.2) return;
+  if (phase >= 0.36 && phase < 0.4) return;
+  if (phase > 0.44) return;
 
-export function getWeatherIcon(weather) {
-  return WEATHER_ICON[weather] || "city";
+  ctx.save();
+  ctx.globalAlpha = phase < 0.12 ? 0.16 : 0.08;
+  ctx.fillStyle = "#dce9ff";
+  ctx.fillRect(0, 0, W, H);
+  if (phase < 0.12) {
+    const seed = Math.floor((t + 4.2) / 15);
+    const random = mulberry32(seed * 41 + 7);
+    let x = 50 + Math.round(random() * 380);
+    let y = 30 + Math.round(random() * 18);
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = "#f4f9ff";
+    for (let step = 0; step < 9; step += 1) {
+      const nx = x + Math.round((random() * 2 - 1) * 12);
+      const ny = y + 8 + Math.round(random() * 9);
+      line(ctx, x, y, nx, ny, "#f4f9ff");
+      x = nx;
+      y = ny;
+      if (y > 150) break;
+    }
+  }
+  ctx.restore();
+}
+
+function drawWeather(ctx, weather, t, reducedMotion) {
+  const time = reducedMotion ? 0 : t;
+  switch (weather) {
+    case "storm":
+      drawRain(ctx, time, { count: 300, wind: 38, speed: 220, maxAlpha: 0.5 });
+      drawFog(ctx, time, { y: 190, alpha: 0.1, height: 26, color: "#c8d6e5" });
+      if (!reducedMotion) drawLightning(ctx, t);
+      break;
+    case "rain":
+      drawRain(ctx, time, { count: 190, wind: 24, speed: 170 });
+      drawFog(ctx, time, { y: 200, alpha: 0.07, height: 18, color: "#c9d7e8" });
+      drawPetals(ctx, time, { count: 8, color: "#ffa8cc", speed: 4 });
+      break;
+    case "snow":
+      drawSnow(ctx, time, { count: 150, wind: 14, speed: 16 });
+      drawFog(ctx, time, { y: 198, alpha: 0.07, height: 18, color: "#dfeaf5" });
+      break;
+    case "breeze":
+      drawLeaves(ctx, time, { count: 36, speed: 9, wind: 36 });
+      drawPetals(ctx, time, { count: 9, color: "#ffd59a", speed: 3 });
+      break;
+    case "fall":
+      drawLeaves(ctx, time, { count: 92, speed: 17, wind: 22 });
+      drawFog(ctx, time, { y: 200, alpha: 0.035, height: 18, color: "#e5b27c" });
+      break;
+    case "fog":
+      drawFog(ctx, time, { y: 142, alpha: 0.09, height: 44, layers: 6, color: "#c8d3df" });
+      drawFog(ctx, time, { y: 196, alpha: 0.13, height: 34, layers: 5, color: "#dfe5ec" });
+      break;
+    case "clear":
+      drawPetals(ctx, time, { count: 9, color: "#ffd59a", speed: 3 });
+      break;
+    default:
+      break;
+  }
 }
 
 export function drawScene(ctx, cityId, t, weather, reducedMotion = false) {
@@ -1392,6 +1420,7 @@ export function drawScene(ctx, cityId, t, weather, reducedMotion = false) {
   } else {
     drawTokyo(ctx, t, weather, reducedMotion);
   }
+  drawWeather(ctx, weather, t, reducedMotion);
 }
 
 export function drawPreview(canvas, cityId, weather) {

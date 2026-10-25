@@ -5,10 +5,13 @@ import { STYLES } from "./titles.js";
 import {
   CATALOG,
   CATEGORIES,
+  RADIO_ORDER,
   getTrack,
+  nextTrackInCatalog,
   nextTrackInCategory,
   trackIndex,
   tracksForFilter,
+  upcomingCatalogTracks,
   upcomingTracks,
 } from "./catalog.js";
 import { drawPreview } from "./scenes.js";
@@ -16,15 +19,63 @@ import { drawPreview } from "./scenes.js";
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-const WEATHER_CYCLE = ["rain", "snow", "clear"];
-const WEATHER_LABEL = { rain: "rain", snow: "snow", clear: "clear" };
-const WEATHER_ICON = {
-  rain: "#i-weather-rain",
-  snow: "#i-weather-snow",
-  clear: "#i-weather-clear",
-};
+const WEATHERS = [
+  {
+    id: "clear",
+    label: "Clear",
+    chip: "clear",
+    icon: "#i-weather-clear",
+    blurb: "Stars, a low city hum and clear-night crickets.",
+  },
+  {
+    id: "rain",
+    label: "Rain",
+    chip: "rain",
+    icon: "#i-weather-rain",
+    blurb: "Rain on the glass, close patter and distant thunder.",
+  },
+  {
+    id: "storm",
+    label: "Storm",
+    chip: "storm",
+    icon: "#i-weather-storm",
+    blurb: "Heavy rain, wind and thunder rolling through the towers.",
+  },
+  {
+    id: "snow",
+    label: "Snow",
+    chip: "snow",
+    icon: "#i-weather-snow",
+    blurb: "Soft snow, gusting wind and a hush over the street.",
+  },
+  {
+    id: "breeze",
+    label: "Breeze",
+    chip: "breeze",
+    icon: "#i-weather-breeze",
+    blurb: "Moving air, leaves turning over and a light rustle.",
+  },
+  {
+    id: "fall",
+    label: "Autumn",
+    chip: "autumn",
+    icon: "#i-weather-fall",
+    blurb: "Dry leaves, a cool wind and the sound of October.",
+  },
+  {
+    id: "fog",
+    label: "Fog",
+    chip: "fog",
+    icon: "#i-weather-fog",
+    blurb: "Low fog, muffled streets and a soft low hum.",
+  },
+];
+const WEATHER_BY_ID = Object.fromEntries(WEATHERS.map((weather) => [weather.id, weather]));
+const WEATHER_CYCLE = ["rain", "storm", "snow", "breeze", "fall", "fog", "clear"];
+const WEATHER_LABEL = Object.fromEntries(WEATHERS.map((weather) => [weather.id, weather.chip]));
 const TRACK_BARS = 32;
 const TOUR_DELAY = 90_000;
+const RADIO_SLOT_MS = 2 * 60 * 1000;
 
 const KEYS = {
   city: "lofi-skylines.city",
@@ -65,13 +116,14 @@ const initialTrack = getTrack(read(KEYS.track)) || CATALOG[0];
 
 const state = {
   city: firstCity.id,
-  weather: WEATHER_LABEL[savedWeather] ? savedWeather : firstCity.defaultWeather,
-  weatherOverridden: Boolean(WEATHER_LABEL[savedWeather]),
+  weather: WEATHER_BY_ID[savedWeather] ? savedWeather : firstCity.defaultWeather,
+  weatherOverridden: Boolean(WEATHER_BY_ID[savedWeather]),
   style: initialTrack.style,
   citySounds: read(KEYS.sounds, "1") !== "0",
   muted: false,
   playing: false,
   started: false,
+  radio: false,
   tour: false,
   tourTimer: 0,
   track: initialTrack,
@@ -122,11 +174,13 @@ const els = {
   weatherIcon: $("#weatherIcon use"),
   weatherState: $("#weatherState"),
   weatherBtn: $("#weatherBtn"),
+  weatherGrid: $("#weatherGrid"),
+  soundsBtn: $("#soundsBtn"),
+  soundsState: $("#soundsState"),
   radioBtn: $("#radioBtn"),
   radioState: $("#radioState"),
   tourBtn: $("#tourBtn"),
   tourState: $("#tourState"),
-  listenerText: $("#listenerText"),
   liveText: $("#liveText"),
   trackTitle: $("#trackTitle"),
   trackSub: $("#trackSub"),
@@ -147,6 +201,7 @@ const els = {
 
 const dialogs = {
   cities: $("#citiesDialog"),
+  weather: $("#weatherDialog"),
   library: $("#libraryDialog"),
   queue: $("#queueDialog"),
   timer: $("#timerDialog"),
@@ -223,18 +278,33 @@ function applyCityUI() {
 }
 
 function updateWeatherUI() {
-  els.weatherIcon.setAttribute("href", WEATHER_ICON[state.weather]);
-  els.weatherState.textContent = WEATHER_LABEL[state.weather];
-  els.weatherBtn.setAttribute("aria-label", `Weather: ${state.weather}. Change weather`);
-  els.weatherBtn.title = `Weather: ${state.weather} (W)`;
+  const weather = WEATHER_BY_ID[state.weather] || WEATHERS[0];
+  els.weatherIcon.setAttribute("href", weather.icon);
+  els.weatherState.textContent = weather.chip;
+  els.weatherBtn.setAttribute("aria-label", `Weather: ${weather.label}. Change weather`);
+  els.weatherBtn.title = `Weather: ${weather.label} (W)`;
+  renderWeatherGrid();
 }
 
 function updateSoundsUI() {
-  els.radioBtn.setAttribute("aria-pressed", String(state.citySounds));
-  els.radioState.textContent = state.citySounds ? "on" : "off";
-  els.radioBtn.title = state.citySounds
+  els.soundsBtn.setAttribute("aria-pressed", String(state.citySounds));
+  els.soundsState.textContent = state.citySounds ? "on" : "off";
+  els.soundsBtn.title = state.citySounds
     ? "Weather & city sounds on (A)"
     : "Weather & city sounds off (A)";
+}
+
+function updateRadioUI() {
+  els.radioBtn.classList.toggle("is-active", state.radio);
+  els.radioBtn.setAttribute("aria-pressed", String(state.radio));
+  els.radioState.textContent = state.radio
+    ? state.playing
+      ? "On air"
+      : "Radio on"
+    : "Radio off";
+  els.radioBtn.title = state.radio
+    ? "Turn off Lofi Skylines Radio (O)"
+    : "Tune in to Lofi Skylines Radio (O)";
 }
 
 function updateTourUI() {
@@ -247,8 +317,8 @@ function updatePlayUI() {
   els.body.classList.toggle("is-playing", state.playing);
   els.playBtn.setAttribute("aria-pressed", String(state.playing));
   els.playBtn.setAttribute("aria-label", state.playing ? "Pause music" : "Play music");
-  els.listenerText.textContent = state.playing ? "1 listening" : "1 here";
-  els.liveText.textContent = state.playing ? "1 here now · all night" : "1 here now · all night";
+  els.liveText.textContent = "1 here now · all night";
+  updateRadioUI();
   updateTrackUI();
   updateMediaSession();
 }
@@ -332,7 +402,7 @@ function pauseTrackTimer() {
 function playCatalogTrack(track, { auto = false, start = false } = {}) {
   state.track = track;
   state.style = track.style;
-  state.queue = upcomingTracks(track, 4);
+  state.queue = state.radio ? upcomingCatalogTracks(track, 4) : upcomingTracks(track, 4);
   state.trackRemaining = trackDurationMs();
   write(KEYS.track, track.id);
 
@@ -351,7 +421,7 @@ function playCatalogTrack(track, { auto = false, start = false } = {}) {
 }
 
 function setWeather(weather, { persist = true, silent = false } = {}) {
-  if (!WEATHER_LABEL[weather]) return;
+  if (!WEATHER_BY_ID[weather]) return;
   state.weather = weather;
   scene.setWeather(weather);
   audio.setWeather(weather);
@@ -361,7 +431,7 @@ function setWeather(weather, { persist = true, silent = false } = {}) {
   }
   updateWeatherUI();
   renderCityGrid();
-  if (!silent) showToast(`Weather · ${WEATHER_LABEL[weather]}`);
+  if (!silent) showToast(`Weather · ${WEATHER_BY_ID[weather].label}`);
 }
 
 function cycleWeather() {
@@ -376,6 +446,24 @@ function setCitySounds(enabled, { silent = false } = {}) {
   write(KEYS.sounds, enabled ? "1" : "0");
   updateSoundsUI();
   if (!silent) showToast(enabled ? "Weather & city sounds on" : "Weather & city sounds off");
+}
+
+function setRadio(enabled, { silent = false } = {}) {
+  if (enabled === state.radio) return;
+  state.radio = enabled;
+
+  if (enabled) {
+    const slot = Math.floor(Date.now() / RADIO_SLOT_MS) % RADIO_ORDER.length;
+    playCatalogTrack(RADIO_ORDER[slot], { start: true });
+    state.queue = upcomingCatalogTracks(state.track, 4);
+    if (dialogs.queue.open) renderQueue();
+    if (!silent) showToast("Radio on · Lofi Skylines Radio", 2600);
+  } else {
+    state.queue = upcomingTracks(state.track, 4);
+    if (dialogs.queue.open) renderQueue();
+    if (!silent) showToast("Radio off · back to your mood");
+  }
+  updateRadioUI();
 }
 
 function switchCity(cityId, { silent = false, fromTour = false } = {}) {
@@ -461,7 +549,10 @@ async function togglePlay() {
 }
 
 function nextTrack({ auto = false } = {}) {
-  playCatalogTrack(nextTrackInCategory(state.track), { auto });
+  const next = state.radio
+    ? nextTrackInCatalog(state.track)
+    : nextTrackInCategory(state.track);
+  playCatalogTrack(next, { auto });
 }
 
 function updateVolumeUI() {
@@ -625,6 +716,37 @@ function renderCityGrid() {
   });
 }
 
+function buildWeatherGrid() {
+  if (!els.weatherGrid) return;
+  els.weatherGrid.replaceChildren();
+  WEATHERS.forEach((weather) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "weather-card";
+    button.dataset.weather = weather.id;
+    button.innerHTML = `<span class="weather-icon"><svg class="icon"><use href="${weather.icon}"></use></svg></span>
+      <span class="weather-copy"><strong></strong><small></small></span>
+      <span class="weather-check"><svg class="icon"><use href="#i-check"></use></svg></span>`;
+    $("strong", button).textContent = weather.label;
+    $("small", button).textContent = weather.blurb;
+    button.addEventListener("click", () => {
+      setWeather(weather.id, { persist: true });
+      closeDialog(dialogs.weather);
+    });
+    els.weatherGrid.append(button);
+  });
+  renderWeatherGrid();
+}
+
+function renderWeatherGrid() {
+  if (!els.weatherGrid) return;
+  $$(".weather-card", els.weatherGrid).forEach((card) => {
+    const active = card.dataset.weather === state.weather;
+    card.classList.toggle("is-active", active);
+    card.setAttribute("aria-pressed", String(active));
+  });
+}
+
 function buildLibraryTabs() {
   if (!els.libraryTabs) return;
   const tabs = [
@@ -701,6 +823,12 @@ function updateLibraryActive() {
 function renderQueue() {
   const list = $("#queueList");
   if (!list) return;
+  const note = $("#queueNote");
+  if (note) {
+    note.textContent = state.radio
+      ? "Radio is on — the station picks what comes next."
+      : "Next and auto-advance stay in the current mood.";
+  }
   list.replaceChildren();
   const status = state.playing ? "playing" : state.started ? "paused" : "ready";
   const current = document.createElement("li");
@@ -849,9 +977,13 @@ function bindUI() {
     openDialog(dialogs.cities);
   });
 
-  $("#weatherBtn").addEventListener("click", cycleWeather);
+  $("#weatherBtn").addEventListener("click", () => {
+    renderWeatherGrid();
+    openDialog(dialogs.weather);
+  });
   $("#tourBtn").addEventListener("click", () => setTour(!state.tour));
-  $("#radioBtn").addEventListener("click", () => setCitySounds(!state.citySounds));
+  $("#soundsBtn").addEventListener("click", () => setCitySounds(!state.citySounds));
+  $("#radioBtn").addEventListener("click", () => setRadio(!state.radio));
 
   $("#libraryBtn").addEventListener("click", () => {
     renderLibrary();
@@ -951,6 +1083,9 @@ function bindUI() {
       case "a":
         setCitySounds(!state.citySounds);
         break;
+      case "o":
+        setRadio(!state.radio);
+        break;
       case "g":
         fillGuide();
         openDialog(dialogs.guide);
@@ -990,6 +1125,7 @@ function bindUI() {
 
 function init() {
   buildCityGrid();
+  buildWeatherGrid();
   buildLibraryTabs();
   updateWeatherUI();
   updateSoundsUI();
@@ -997,6 +1133,7 @@ function init() {
   updateVolumeUI();
   updateTimerUI();
   applyCityUI();
+  updateRadioUI();
   updatePlayUI();
   bindUI();
   updateClock();

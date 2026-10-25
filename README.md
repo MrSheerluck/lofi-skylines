@@ -27,11 +27,14 @@ account, no ads.
   scheduled live with the Web Audio API.
 - **A real playlist:** Next plays the next track immediately, auto-advance
   keeps the current mood, and the library lets you jump to any of the 30.
-- **Weather sound beds:** rain hiss and close patter with occasional distant
-  thunder, wind and hush for snow, and a low city hum with crickets on clear
-  nights. Weather changes crossfade the ambience and add a short transition.
+- **Radio mode:** tune in and the station starts playing, mixing all three
+  moods on a shared clock. The chip shows On air while it is running.
+- **Seven weather sound beds:** rain, storm, snow, breeze, autumn, fog and a
+  clear night. Rain and storm bring thunder, snow brings wind and hush, autumn
+  rustles, fog muffles the city, and clear nights get a low hum and crickets.
+  Weather changes crossfade the ambience and add a short transition.
+- **Weather picker** with live scene and sound changes, plus `W` to cycle.
 - **City picker** with live previews and local times.
-- **Weather** (rain, snow, clear) that changes the scene and the sound bed.
 - **City tour**, a 25/50-minute focus timer, keyboard shortcuts, volume
   controls, shareable city links, and a downloadable 1920 × 1080 postcard.
 - **No build step, no tracking, no third-party requests.** The site is plain
@@ -134,6 +137,7 @@ music library — follows automatically.
 | `F` | Fullscreen |
 | `M` | Mute / unmute |
 | `A` | Weather &amp; city sounds on / off |
+| `O` | Radio on / off |
 | `1` `2` `3` | Jump to a city |
 | `←` `→` | Previous / next city |
 | `?` | Shortcuts |

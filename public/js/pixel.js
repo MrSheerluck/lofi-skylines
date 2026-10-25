@@ -515,6 +515,39 @@ export function drawPetals(ctx, t, options = {}) {
   ctx.restore();
 }
 
+export function drawLeaves(ctx, t, options = {}) {
+  const {
+    count = 46,
+    seed = 812,
+    speed = 14,
+    wind = 18,
+    colors = ["#f0c775", "#e8a957", "#d88a46", "#f5d99a", "#c9793f"],
+  } = options;
+  const random = mulberry32(seed);
+  ctx.save();
+  for (let i = 0; i < count; i += 1) {
+    const baseX = random() * W;
+    const baseY = random() * H;
+    const sp = speed * (0.45 + random() * 1.2);
+    const phase = random() * Math.PI * 2;
+    const sway = Math.sin(t * (0.7 + random() * 0.8) + phase) * (6 + random() * 14);
+    const x = mod(baseX + t * wind + sway, W + 24) - 12;
+    const y = mod(baseY + t * sp, H + 16) - 8;
+    const color = colors[Math.floor(random() * colors.length)];
+    const width = random() > 0.55 ? 3 : 2;
+    ctx.globalAlpha = 0.55 + random() * 0.4;
+    ctx.fillStyle = color;
+    if (random() > 0.45) {
+      ctx.fillRect(Math.round(x), Math.round(y), width, 1);
+      ctx.fillRect(Math.round(x + (random() > 0.5 ? 1 : 0)), Math.round(y + 1), 1, 1);
+    } else {
+      ctx.fillRect(Math.round(x), Math.round(y), 1, width);
+      ctx.fillRect(Math.round(x + 1), Math.round(y + (random() > 0.5 ? 1 : 0)), 1, 1);
+    }
+  }
+  ctx.restore();
+}
+
 export function drawFog(ctx, t, options = {}) {
   const {
     y = 185,

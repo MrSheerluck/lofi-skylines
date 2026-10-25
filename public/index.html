@@ -47,6 +47,10 @@
       <symbol id="i-weather-rain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15.5a4 4 0 0 1-.6-8A5.5 5.5 0 0 1 17 8.4a3.6 3.6 0 0 1 1 7"/><path d="M8 18.5l-.8 2M12 18.5l-.8 2M16 18.5l-.8 2"/></symbol>
       <symbol id="i-weather-snow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15.5a4 4 0 0 1-.6-8A5.5 5.5 0 0 1 17 8.4a3.6 3.6 0 0 1 1 7"/><path d="M8 19h.01M12 20h.01M16 19h.01M10 22h.01M14 22h.01"/></symbol>
       <symbol id="i-weather-clear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M2 12h2.2M19.8 12H22M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></symbol>
+      <symbol id="i-weather-storm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 14.5a4 4 0 0 1-.6-8A5.5 5.5 0 0 1 17 7.4a3.6 3.6 0 0 1 1 7"/><path d="m12 14-2 4h3l-2 4"/><path d="M7.5 18.5l-.8 2M16.5 18.5l-.8 2"/></symbol>
+      <symbol id="i-weather-breeze" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 8h10.5a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h15a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 16h7a2 2 0 1 1-2 2"/></symbol>
+      <symbol id="i-weather-fog" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13.5a4 4 0 0 1-.6-8A5.5 5.5 0 0 1 17 6.4a3.6 3.6 0 0 1 1 7"/><path d="M4 17h16M6 20h12M3 23h18"/></symbol>
+      <symbol id="i-weather-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C12 4 5 8 4.5 16.5 9 17 20 14 20 4Z"/><path d="M4 21c2-6 6-9 11-11"/><path d="M8 5.5c1.3 4 4.5 7.2 8.5 8.5"/></symbol>
       <symbol id="i-weather-city" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M4 21V9l5-3v15M9 21V4l6-2v19M15 21V11l5 3v7M2 21h20"/><path d="M12 6h.01M12 9h.01M12 12h.01M12 15h.01M12 18h.01M6 12h.01M6 16h.01M18 17h.01"/></symbol>
       <symbol id="i-radio" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M7 7l11-4M7 12h4M7 16h2"/><circle cx="16" cy="14" r="2.5"/></symbol>
       <symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5 5-2Z"/></symbol>
@@ -128,18 +132,18 @@
               <svg class="icon"><use href="#i-compass"></use></svg>
               <span>Tour</span><span class="chip-state" id="tourState">off</span>
             </button>
-            <button class="chip" id="weatherBtn" type="button" aria-pressed="true">
+            <button class="chip" id="weatherBtn" type="button" aria-haspopup="dialog" aria-label="Weather: rain. Change weather">
               <svg class="icon" id="weatherIcon"><use href="#i-weather-rain"></use></svg>
               <span>Weather</span><span class="chip-state" id="weatherState">rain</span>
             </button>
-            <button class="chip" id="radioBtn" type="button" aria-pressed="true">
-              <svg class="icon"><use href="#i-radio"></use></svg>
-              <span>Radio</span><span class="chip-state" id="radioState">on</span>
+            <button class="chip" id="soundsBtn" type="button" aria-pressed="true" title="Weather &amp; city sounds">
+              <svg class="icon"><use href="#i-volume"></use></svg>
+              <span>Sounds</span><span class="chip-state" id="soundsState">on</span>
             </button>
-            <span class="chip chip-listeners" id="listenerChip">
+            <button class="chip chip-radio" id="radioBtn" type="button" aria-pressed="false" title="Lofi Skylines Radio (O)">
               <span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-              <span id="listenerText">1 listening</span>
-            </span>
+              <span id="radioState">Radio off</span>
+            </button>
             <button class="chip chip-square" id="gridBtn" type="button" aria-label="All cities" aria-haspopup="dialog">
               <svg class="icon"><use href="#i-grid"></use></svg>
             </button>
@@ -214,6 +218,20 @@
         <p class="sheet-note">Three hand-built pixel cities. More are on the way — press <kbd>C</kbd> any time.</p>
       </dialog>
 
+      <dialog class="sheet sheet-small" id="weatherDialog" aria-labelledby="weatherTitle">
+        <div class="sheet-head">
+          <div>
+            <p class="eyebrow">Weather</p>
+            <h2 id="weatherTitle">Set the night</h2>
+          </div>
+          <button class="sheet-close" type="button" data-close aria-label="Close">
+            <svg class="icon"><use href="#i-close"></use></svg>
+          </button>
+        </div>
+        <div class="weather-grid" id="weatherGrid"></div>
+        <p class="sheet-note">Every weather changes the scene and its sound bed. Press <kbd>W</kbd> to cycle; the Sounds chip controls the mix.</p>
+      </dialog>
+
       <dialog class="sheet sheet-small library-sheet" id="libraryDialog" aria-labelledby="libraryTitle">
         <div class="sheet-head">
           <div>
@@ -244,7 +262,7 @@
           <button class="text-btn" id="browseLibrary" type="button">
             <svg class="icon"><use href="#i-music"></use></svg><span>Browse all 30 songs</span>
           </button>
-          <span class="sheet-note inline">Next and auto-advance stay in the current mood.</span>
+          <span class="sheet-note inline" id="queueNote">Next and auto-advance stay in the current mood.</span>
         </div>
       </dialog>
 
@@ -291,6 +309,7 @@
           <div><dt><kbd>F</kbd></dt><dd>Fullscreen</dd></div>
           <div><dt><kbd>M</kbd></dt><dd>Mute / unmute</dd></div>
           <div><dt><kbd>A</kbd></dt><dd>Weather &amp; city sounds</dd></div>
+          <div><dt><kbd>O</kbd></dt><dd>Radio on / off</dd></div>
           <div><dt><kbd>1–3</kbd></dt><dd>Jump to a city</dd></div>
           <div><dt><kbd>← →</kbd></dt><dd>Previous / next city</dd></div>
           <div><dt><kbd>?</kbd></dt><dd>This panel</dd></div>
@@ -338,8 +357,9 @@
             Every scene is drawn on a 480 × 270 canvas, one pixel at a time. Every note of the
             music — and every drop of rain, gust of wind and clear-night cricket — is synthesized
             with the Web Audio API. There are 30 tracks across lo-fi, deep focus and focused EDM;
-            the queue moves on by itself when a track ends, or press Next to skip ahead. Nothing
-            is streamed, sampled, or pre-recorded.
+            the queue moves on by itself when a track ends, or press Next to skip ahead. Radio
+            turns the whole library into a continuous station. Nothing is streamed, sampled, or
+            pre-recorded.
           </p>
           <p class="about-meta">
             Built as a minimal tribute to <a href="https://loficities.com" target="_blank" rel="noreferrer">Lofi Cities</a>.

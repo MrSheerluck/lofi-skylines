@@ -378,6 +378,10 @@ export class LofiEngine {
     this.snowHush = makeLayer("highpass", 2900, 0.35, 0);
     this.humLayer = makeLayer("lowpass", 175, 0.65, 0);
 
+    // Autumn leaves: a dry, high rustle that comes and goes with the gusts.
+    this.leafLayer = makeLayer("bandpass", 3200, 1.1, 0);
+    this.fogLayer = makeLayer("lowpass", 240, 0.5, 0);
+
     const windLfo = ctx.createOscillator();
     windLfo.frequency.value = 0.075;
     const windDepth = ctx.createGain();
@@ -389,18 +393,34 @@ export class LofiEngine {
     const gustLfo = ctx.createOscillator();
     gustLfo.frequency.value = 0.055;
     const gustDepth = ctx.createGain();
-    gustDepth.gain.value = 0.07;
+    gustDepth.gain.value = 45;
     gustLfo.connect(gustDepth);
-    gustDepth.connect(this.windLayer.gain.gain);
+    gustDepth.connect(this.windLayer.filter.frequency);
     gustLfo.start();
 
     const patterLfo = ctx.createOscillator();
     patterLfo.frequency.value = 0.61;
     const patterDepth = ctx.createGain();
-    patterDepth.gain.value = 0.05;
+    patterDepth.gain.value = 220;
     patterLfo.connect(patterDepth);
-    patterDepth.connect(this.rainPatter.gain.gain);
+    patterDepth.connect(this.rainPatter.filter.frequency);
     patterLfo.start();
+
+    const leafLfo = ctx.createOscillator();
+    leafLfo.frequency.value = 0.83;
+    const leafDepth = ctx.createGain();
+    leafDepth.gain.value = 700;
+    leafLfo.connect(leafDepth);
+    leafDepth.connect(this.leafLayer.filter.frequency);
+    leafLfo.start();
+
+    const fogLfo = ctx.createOscillator();
+    fogLfo.frequency.value = 0.035;
+    const fogDepth = ctx.createGain();
+    fogDepth.gain.value = 60;
+    fogLfo.connect(fogDepth);
+    fogDepth.connect(this.fogLayer.filter.frequency);
+    fogLfo.start();
 
     this.nextCricketAt = ctx.currentTime + 2 + Math.random() * 3;
     this.nextThunderAt = ctx.currentTime + 9 + Math.random() * 14;
@@ -411,32 +431,46 @@ export class LofiEngine {
     if (!this.ctx || !this.rainLayer) return;
     const now = this.ctx.currentTime;
     const targets = {
-      rain: { rain: 0.72, patter: 0.38, wind: 0.06, hush: 0, hum: 0.08 },
-      snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1 },
-      clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3 },
-    }[this.weather] || { rain: 0.5, patter: 0.2, wind: 0.08, hush: 0, hum: 0.1 };
+      clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3, leaves: 0, fog: 0 },
+      rain: { rain: 0.72, patter: 0.38, wind: 0.06, hush: 0, hum: 0.08, leaves: 0, fog: 0.025 },
+      storm: { rain: 1.0, patter: 0.55, wind: 0.28, hush: 0, hum: 0.04, leaves: 0.03, fog: 0.06 },
+      snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1, leaves: 0, fog: 0.03 },
+      breeze: { rain: 0, patter: 0, wind: 0.32, hush: 0, hum: 0.12, leaves: 0.16, fog: 0 },
+      fall: { rain: 0, patter: 0, wind: 0.16, hush: 0, hum: 0.08, leaves: 0.44, fog: 0 },
+      fog: { rain: 0, patter: 0, wind: 0.1, hush: 0, hum: 0.18, leaves: 0, fog: 0.26 },
+    }[this.weather] || { rain: 0.5, patter: 0.2, wind: 0.08, hush: 0, hum: 0.1, leaves: 0, fog: 0 };
 
     this.rainLayer.gain.gain.setTargetAtTime(targets.rain, now, 0.7);
     this.rainPatter.gain.gain.setTargetAtTime(targets.patter, now, 0.7);
     this.windLayer.gain.gain.setTargetAtTime(targets.wind, now, 0.7);
     this.snowHush.gain.gain.setTargetAtTime(targets.hush, now, 0.7);
     this.humLayer.gain.gain.setTargetAtTime(targets.hum, now, 0.7);
+    this.leafLayer.gain.gain.setTargetAtTime(targets.leaves, now, 0.7);
+    this.fogLayer.gain.gain.setTargetAtTime(targets.fog, now, 0.9);
   }
 
   playWeatherTransition(weather) {
     if (!this.ctx || !this.playing || !this.citySounds) return;
     const ctx = this.ctx;
+    const preset = {
+      rain: { type: "bandpass", frequency: 1400, q: 0.6, level: 0.045 },
+      storm: { type: "bandpass", frequency: 900, q: 0.4, level: 0.065 },
+      snow: { type: "lowpass", frequency: 650, q: 0.35, level: 0.045 },
+      breeze: { type: "bandpass", frequency: 1800, q: 0.5, level: 0.025 },
+      fall: { type: "bandpass", frequency: 3000, q: 0.8, level: 0.032 },
+      fog: { type: "lowpass", frequency: 350, q: 0.4, level: 0.03 },
+      clear: { type: "highpass", frequency: 2400, q: 0.4, level: 0.018 },
+    }[weather] || { type: "highpass", frequency: 2400, q: 0.4, level: 0.018 };
     const time = ctx.currentTime + 0.03;
     const source = ctx.createBufferSource();
     source.buffer = this.noiseBuffer(1.4);
     const filter = ctx.createBiquadFilter();
-    filter.type =
-      weather === "rain" ? "bandpass" : weather === "snow" ? "lowpass" : "highpass";
-    filter.frequency.value = weather === "rain" ? 1400 : weather === "snow" ? 650 : 2400;
-    filter.Q.value = weather === "rain" ? 0.6 : 0.35;
+    filter.type = preset.type;
+    filter.frequency.value = preset.frequency;
+    filter.Q.value = preset.q;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.linearRampToValueAtTime(weather === "clear" ? 0.018 : 0.045, time + 0.18);
+    gain.gain.linearRampToValueAtTime(preset.level, time + 0.18);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + 1.1);
     source.connect(filter);
     filter.connect(gain);
@@ -469,7 +503,7 @@ export class LofiEngine {
   }
 
   scheduleThunder(time = this.ctx.currentTime + 0.3) {
-    if (!this.ctx || this.weather !== "rain") return;
+    if (!this.ctx || (this.weather !== "rain" && this.weather !== "storm")) return;
     const ctx = this.ctx;
     const source = ctx.createBufferSource();
     source.buffer = this.noiseBuffer(3.2, true);
@@ -597,9 +631,14 @@ export class LofiEngine {
       this.scheduleCricket(now + 0.12 + Math.random() * 0.2);
       this.nextCricketAt = now + 1.8 + Math.random() * 3.8;
     }
-    if (this.citySounds && this.weather === "rain" && now >= this.nextThunderAt) {
+    if (
+      this.citySounds &&
+      (this.weather === "rain" || this.weather === "storm") &&
+      now >= this.nextThunderAt
+    ) {
       this.scheduleThunder(now + 0.2 + Math.random() * 1.2);
-      this.nextThunderAt = now + 22 + Math.random() * 30;
+      this.nextThunderAt =
+        now + (this.weather === "storm" ? 6 + Math.random() * 10 : 22 + Math.random() * 30);
     }
   }
 
@@ -1126,8 +1165,12 @@ export class LofiEngine {
     this.weather = weather;
     this.applyWeatherLayers();
     if (this.ctx) {
-      if (weather === "rain") this.nextThunderAt = this.ctx.currentTime + 5 + Math.random() * 9;
-      if (weather === "clear") this.nextCricketAt = this.ctx.currentTime + 1.2 + Math.random() * 2.4;
+      const now = this.ctx.currentTime;
+      if (weather === "rain" || weather === "storm") {
+        this.nextThunderAt =
+          now + (weather === "storm" ? 2 + Math.random() * 5 : 5 + Math.random() * 9);
+      }
+      if (weather === "clear") this.nextCricketAt = now + 1.2 + Math.random() * 2.4;
     }
     if (this.ctx && this.playing) this.playWeatherTransition(weather);
   }
