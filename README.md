@@ -1,10 +1,12 @@
 # Lofi Skylines
 
-Pixel-art city nights with endless lofi music, generated live in your browser.
+Pixel-art city nights with 30 generated tracks, live in your browser.
 A small, free, open-source tribute to [Lofi Cities](https://loficities.com).
 
 **Live:** <https://lofi-skylines.mrsheerluck003.workers.dev>
 **Source:** <https://github.com/MrSheerluck/lofi-skylines>
+**Buy me a coffee:** <https://buymeacoffee.com/mrsheerlucx>
+**GitHub Sponsors:** <https://github.com/sponsors/MrSheerluck>
 
 Three hand-built scenes — Tokyo in neon rain, Paris at blue hour, and the
 Brooklyn Bridge in snow — each drawn pixel by pixel on a 480 × 270 canvas.
@@ -17,11 +19,14 @@ account, no ads.
 
 - **Three animated pixel cities** with rain, snow, clouds, traffic, trains,
   pedestrians, birds, blinking signs, reflections, and falling petals.
-- **Endless generative lofi** in six styles: jazzhop, felt piano, ambient,
-  bossa, city synth, and lofi house. Chords, bass, drums, melodies, vinyl
-  crackle, and weather ambience are scheduled live with the Web Audio API.
-- **A real playlist:** Next plays the next track immediately, the queue rotates,
-  and tracks advance on their own after about one to two minutes.
+- **A 30-track library in three moods:** ten lo-fi tracks, ten deep-focus
+  tracks, and ten focused-EDM tracks. Every track has its own tempo, key
+  transposition, chord progression, melody density, and drum recipe.
+- **Real synthesis, not samples:** Rhodes chords, felt piano, pads, synth
+  stabs, arpeggios, bass, drums, vinyl crackle, and weather ambience are
+  scheduled live with the Web Audio API.
+- **A real playlist:** Next plays the next track immediately, auto-advance
+  keeps the current mood, and the library lets you jump to any of the 30.
 - **Weather sound beds:** rain hiss and close patter with occasional distant
   thunder, wind and hush for snow, and a low city hum with crickets on clear
   nights. Weather changes crossfade the ambience and add a short transition.
@@ -88,11 +93,23 @@ HTTPS for free.
 | `public/styles.css` | Colors, type, spacing, and the UI accent. |
 | `public/js/cities.js` | City names, subtitles, time zones, guides, accents. |
 | `public/js/scenes.js` | Canvas art and animation per city. |
-| `public/js/titles.js` | Track-name pools and style labels. |
+| `public/js/catalog.js` | The 30 tracks, their categories, tempos, keys, and recipes. |
+| `public/js/titles.js` | Style labels and voice descriptions. |
 | `public/js/audio.js` | Chord progressions, instruments, ambience, and mixes. |
 
 The GitHub links in `index.html` point at this repository. If you fork the
 project, update them to point at your fork.
+
+### Adding a track
+
+Add a row to the matching category in `public/js/catalog.js`:
+
+```js
+["Track title", "jazzhop", progressionIndex, transpose, bpm, swing, density, octave]
+```
+
+Use `catalog.js` categories to keep the 10/10/10 split, or change it. The
+engine reads the recipe automatically when the track is selected.
 
 ### Adding a city
 
@@ -100,10 +117,9 @@ project, update them to point at your fork.
 2. Add a palette in `SKY_DEFS` in `public/js/scenes.js`.
 3. Write a `drawYourCity(ctx, t, weather, reducedMotion)` function and add it
    to the dispatcher in `drawScene`.
-4. Add title pools to `TITLES` in `public/js/titles.js`.
 
-Everything else — the picker, deep links, local time, tour, weather, and track
-titles — follows automatically.
+Everything else — the picker, deep links, local time, tour, weather, and the
+music library — follows automatically.
 
 ## Keyboard shortcuts
 
@@ -113,11 +129,11 @@ titles — follows automatically.
 | `N` | Next track |
 | `C` | Choose a city |
 | `W` | Change weather |
-| `V` | Change vibe |
+| `V` | Open the 30-track library |
 | `T` | Focus timer |
 | `F` | Fullscreen |
 | `M` | Mute / unmute |
-| `A` | City sounds on / off |
+| `A` | Weather &amp; city sounds on / off |
 | `1` `2` `3` | Jump to a city |
 | `←` `→` | Previous / next city |
 | `?` | Shortcuts |
@@ -128,10 +144,17 @@ titles — follows automatically.
 - Audio needs a user gesture. Click the play button once; after that the
   Web Audio graph runs until you pause it.
 - `prefers-reduced-motion` freezes the scene and disables decorative motion.
-- Local state (city, weather, volume, vibe) is stored in `localStorage` only.
-  There is no backend, no analytics, and no cookie.
+- Local state (city, current track, weather, volume, sound toggle) is stored in
+  `localStorage` only. There is no backend, no analytics, and no cookie.
 - The site intentionally has no framework or bundler. It should run on any
   static host, not just Cloudflare.
+
+## Support
+
+If this helps you focus, you can keep the night running:
+
+- [Buy me a coffee](https://buymeacoffee.com/mrsheerlucx)
+- [Sponsor on GitHub](https://github.com/sponsors/MrSheerluck)
 
 ## Credit
 

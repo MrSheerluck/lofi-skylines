@@ -11,6 +11,7 @@ const STYLE_CONFIG = {
     bass: [0, 6, 10, 14],
     melody: [0, 3, 6, 10, 12, 14],
     drumKind: "boom",
+    chordTone: "rhodes",
   },
   piano: {
     bpm: 67,
@@ -24,6 +25,7 @@ const STYLE_CONFIG = {
     bass: [0, 8],
     melody: [0, 2, 4, 6, 8, 10, 12, 14],
     drumKind: "brush",
+    chordTone: "rhodes",
   },
   ambient: {
     bpm: 56,
@@ -37,6 +39,21 @@ const STYLE_CONFIG = {
     bass: [0],
     melody: [0, 8],
     drumKind: "none",
+    chordTone: "rhodes",
+  },
+  "deep-focus": {
+    bpm: 60,
+    swing: 0,
+    pad: 0.85,
+    chordHits: [0],
+    kick: [],
+    snare: [],
+    hats: [],
+    openHat: [],
+    bass: [0],
+    melody: [0, 8],
+    drumKind: "none",
+    chordTone: "rhodes",
   },
   bossa: {
     bpm: 88,
@@ -50,6 +67,7 @@ const STYLE_CONFIG = {
     bass: [0, 6, 8, 14],
     melody: [0, 2, 4, 6, 8, 10, 12, 14],
     drumKind: "brush",
+    chordTone: "rhodes",
   },
   synth: {
     bpm: 94,
@@ -63,6 +81,9 @@ const STYLE_CONFIG = {
     bass: [0, 4, 8, 12],
     melody: [0, 3, 6, 10, 12, 14],
     drumKind: "boom",
+    chordTone: "synth",
+    arpInterval: 4,
+    arpPattern: [0, 1, 2, 3],
   },
   house: {
     bpm: 112,
@@ -76,6 +97,27 @@ const STYLE_CONFIG = {
     bass: [0, 4, 8, 12],
     melody: [0, 3, 6, 10, 12, 14],
     drumKind: "house",
+    chordTone: "synth",
+    arpInterval: 4,
+    arpPattern: [0, 2, 1, 3],
+    pump: true,
+  },
+  "focus-edm": {
+    bpm: 122,
+    swing: 0,
+    pad: 0.3,
+    chordHits: [0, 8],
+    kick: [0, 4, 8, 12],
+    snare: [4, 12],
+    hats: [0, 2, 4, 6, 8, 10, 12, 14],
+    openHat: [2, 6, 10, 14],
+    bass: [0, 4, 8, 12],
+    melody: [0, 3, 6, 10, 12, 14],
+    drumKind: "house",
+    chordTone: "synth",
+    arpInterval: 2,
+    arpPattern: [0, 1, 2, 1],
+    pump: true,
   },
 };
 
@@ -123,6 +165,11 @@ const PROGRESSIONS = {
     ["Dmaj9", "Bm11", "Gmaj9", "A7sus"],
     ["Bm11", "Gmaj9", "Dmaj9", "A7sus"],
   ],
+  "deep-focus": [
+    ["Dmaj9", "Bm11", "Gmaj9", "A7sus"],
+    ["Fmaj9", "Em7", "Dm9", "A7sus"],
+    ["Bm11", "Gmaj9", "Dmaj9", "A7sus"],
+  ],
   bossa: [
     ["Cmaj9", "A7b9", "Dm9", "G13"],
     ["Fmaj9", "G13", "Em7", "A7"],
@@ -140,6 +187,12 @@ const PROGRESSIONS = {
     ["Dm9", "G13", "Cmaj9", "Fmaj9"],
     ["Fmaj9", "Em7", "Dm9", "Cmaj9"],
     ["Am9", "Fmaj9", "G13", "Cmaj9"],
+  ],
+  "focus-edm": [
+    ["Am9", "Fmaj9", "Cmaj9", "G13"],
+    ["Dm9", "G13", "Em7", "Am9"],
+    ["Fmaj9", "G13", "Em7", "Am9"],
+    ["Am9", "Fmaj9", "Dm9", "G13"],
   ],
 };
 
@@ -175,6 +228,7 @@ export class LofiEngine {
     this.ambienceVol = 0.55;
     this.muted = false;
     this.seed = 1;
+    this.recipe = null;
     this.step = 0;
     this.nextStepTime = 0;
     this.timer = 0;
@@ -225,6 +279,12 @@ export class LofiEngine {
     this.musicBus = ctx.createGain();
     this.musicBus.gain.value = curve(this.musicVol) * 0.92;
     this.musicBus.connect(highpass);
+
+    // Tonal instruments run through their own bus so EDM tracks can sidechain
+    // the keys and pads against the kick without ducking the drums.
+    this.tonalBus = ctx.createGain();
+    this.tonalBus.gain.value = 1;
+    this.tonalBus.connect(this.musicBus);
 
     this.ambienceBus = ctx.createGain();
     this.ambienceBus.gain.value = this.citySounds ? curve(this.ambienceVol) * 0.95 : 0;
@@ -476,15 +536,31 @@ export class LofiEngine {
     const random = mulberry32(this.seed);
     const style = STYLE_CONFIG[this.style] || STYLE_CONFIG.jazzhop;
     const progressions = PROGRESSIONS[this.style] || PROGRESSIONS.jazzhop;
-    const progression = progressions[Math.floor(random() * progressions.length)];
+    const recipe = this.recipe || {};
+    let progressionIndex = Number.isInteger(recipe.progressionIndex)
+      ? recipe.progressionIndex
+      : Math.floor(random() * progressions.length);
+    progressionIndex =
+      ((progressionIndex % progressions.length) + progressions.length) % progressions.length;
+    const transpose = Number.isFinite(recipe.transpose) ? recipe.transpose : 0;
+    const progression = progressions[progressionIndex].map((name) => {
+      const chord = CHORDS[name];
+      return {
+        notes: chord.notes.map((note) => note + transpose),
+        root: chord.root + transpose,
+      };
+    });
+
     this.song = {
-      progression: progression.map((name) => CHORDS[name]),
-      bpmOffset: Math.floor(random() * 7) - 3,
-      swingOffset: random() * 0.03,
+      progression,
+      bpm: Number.isFinite(recipe.bpm) ? recipe.bpm : style.bpm + Math.floor(random() * 7) - 3,
+      swing: Number.isFinite(recipe.swing) ? recipe.swing : style.swing + random() * 0.03,
       fill: random() > 0.55,
-      melodyDensity: 0.35 + random() * 0.25,
-      melodyOctave: random() > 0.5 ? 12 : 24,
+      melodyDensity: Number.isFinite(recipe.density) ? recipe.density : 0.35 + random() * 0.25,
+      melodyOctave: Number.isFinite(recipe.octave) ? recipe.octave : random() > 0.5 ? 12 : 24,
       variation: Math.floor(random() * 7),
+      arpInterval: recipe.arpInterval ?? style.arpInterval ?? 0,
+      arpPattern: recipe.arpPattern ?? style.arpPattern ?? [0, 1, 2, 1],
     };
     this.styleConfig = style;
   }
@@ -498,7 +574,7 @@ export class LofiEngine {
   }
 
   get bpm() {
-    return this.styleConfig.bpm + (this.song ? this.song.bpmOffset : 0);
+    return this.song?.bpm ?? this.styleConfig.bpm;
   }
 
   get stepDuration() {
@@ -534,19 +610,28 @@ export class LofiEngine {
     const bar = Math.floor(step / 16);
     const chord = song.progression[bar % 4];
     const random = mulberry32(this.seed + bar * 131 + local * 17);
-    const swing = local % 2 === 1 ? stepDuration * (config.swing + song.swingOffset) : 0;
+    const swing = local % 2 === 1 ? stepDuration * song.swing : 0;
     const t = time + swing;
 
     if (local === 0) {
       this.scheduleChord(chord, time, stepDuration * 16 * 0.92, config, bar);
       if (config.pad > 0.2) {
-        this.schedulePad(chord.notes, time, stepDuration * 16 * (this.style === "ambient" ? 2 : 1), config.pad);
+        const padBars = this.style === "ambient" || this.style === "deep-focus" ? 2 : 1;
+        this.schedulePad(chord.notes, time, stepDuration * 16 * padBars, config.pad);
       }
       this.scheduleBarMelody(bar, chord, time, stepDuration, random);
     }
 
     if (config.chordHits.includes(local) && local !== 0) {
       this.scheduleChord(chord, t, stepDuration * 4.8, config, bar, 0.55);
+    }
+
+    const arpInterval = song.arpInterval;
+    if (arpInterval > 0 && local % arpInterval === 0 && local !== 0) {
+      const pattern = song.arpPattern;
+      const arpIndex = Math.floor(step / arpInterval) % pattern.length;
+      const note = chord.notes[pattern[arpIndex] % chord.notes.length] + 24;
+      this.schedulePluck(note, t, 0.08 + random() * 0.04, 0.17);
     }
 
     if (config.kick.includes(local)) {
@@ -577,7 +662,13 @@ export class LofiEngine {
       if (local === 10) note += 12;
       if (local === 14 && this.style === "jazzhop") note += 7;
       if (local === 8) note += 7;
-      const length = this.style === "ambient" ? stepDuration * 14 : stepDuration * (index === total - 1 ? 2.2 : 4.4);
+      const padStyle = this.style === "ambient" || this.style === "deep-focus";
+      let length = padStyle
+        ? stepDuration * 14
+        : stepDuration * (index === total - 1 ? 2.2 : 4.4);
+      if (this.style === "focus-edm" || this.style === "house") {
+        length = stepDuration * 2.2;
+      }
       this.scheduleBass(note, t, length, local === 0 ? 0.24 : 0.16);
     }
 
@@ -599,14 +690,25 @@ export class LofiEngine {
       });
       return;
     }
+
+    if (config.chordTone === "synth") {
+      chord.notes.forEach((note, index) => {
+        const strum = index * 0.004;
+        const stab = Math.min(duration, this.stepDuration * 3.2);
+        this.scheduleSynth(note, time + strum, stab, 0.055 * velocity);
+      });
+      return;
+    }
+
+    const padStyle = this.style === "ambient" || this.style === "deep-focus";
     chord.notes.forEach((note, index) => {
       const strum = index * (0.007 + (this.seed % 5) * 0.001);
       this.scheduleRhodes(
-        note + (this.style === "ambient" ? 12 : 0),
+        note + (padStyle ? 12 : 0),
         time + strum,
         duration,
-        (this.style === "ambient" ? 0.045 : 0.075) * velocity,
-        0.2,
+        (padStyle ? 0.045 : 0.075) * velocity,
+        padStyle ? 0.28 : 0.2,
       );
     });
   }
@@ -639,7 +741,7 @@ export class LofiEngine {
 
   connectVoice(node, reverbAmount = 0.15, delayAmount = 0) {
     const ctx = this.ctx;
-    node.connect(this.musicBus);
+    node.connect(this.tonalBus);
     if (reverbAmount > 0) {
       const send = ctx.createGain();
       send.gain.value = reverbAmount;
@@ -692,6 +794,40 @@ export class LofiEngine {
     modulator.start(time);
     carrier.stop(stop);
     modulator.stop(stop);
+  }
+
+  scheduleSynth(note, time, duration, velocity) {
+    const ctx = this.ctx;
+    const frequency = midiToFreq(note);
+    const osc = ctx.createOscillator();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(frequency, time);
+    const detuned = ctx.createOscillator();
+    detuned.type = "sawtooth";
+    detuned.frequency.setValueAtTime(frequency, time);
+    detuned.detune.value = 8;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.Q.value = 1.1;
+    filter.frequency.setValueAtTime(4200, time);
+    filter.frequency.exponentialRampToValueAtTime(900, time + Math.min(0.32, duration));
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(velocity, time + 0.006);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0015, velocity * 0.22), time + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + Math.max(0.14, duration));
+
+    osc.connect(filter);
+    detuned.connect(filter);
+    filter.connect(gain);
+    this.connectVoice(gain, 0.1, 0.16);
+
+    osc.start(time);
+    detuned.start(time);
+    osc.stop(time + Math.max(0.16, duration) + 0.05);
+    detuned.stop(time + Math.max(0.16, duration) + 0.05);
   }
 
   scheduleBass(note, time, duration, velocity) {
@@ -810,6 +946,13 @@ export class LofiEngine {
     osc.start(time);
     osc.stop(time + 0.36);
     click.start(time);
+
+    if (this.styleConfig.pump && this.tonalBus) {
+      const pump = this.tonalBus.gain;
+      pump.setValueAtTime(1, time);
+      pump.linearRampToValueAtTime(0.48, time + 0.012);
+      pump.linearRampToValueAtTime(1, time + 0.22);
+    }
   }
 
   scheduleSnare(time, velocity, brush = false) {
@@ -921,7 +1064,13 @@ export class LofiEngine {
     return this.playing;
   }
 
-  next(seed) {
+  next(seed, { style = null, recipe = null } = {}) {
+    if (style && STYLE_CONFIG[style]) {
+      this.style = style;
+      this.pendingStyle = null;
+      this.styleConfig = STYLE_CONFIG[style];
+    }
+    this.recipe = recipe || null;
     this.seed = seed >>> 0;
     this.buildSong();
     this.step = 0;
@@ -938,6 +1087,10 @@ export class LofiEngine {
     // Fade the old track under, then drop the new one in on the next beat.
     const ctx = this.ctx;
     const now = ctx.currentTime;
+    if (this.tonalBus) {
+      this.tonalBus.gain.cancelScheduledValues(now);
+      this.tonalBus.gain.setValueAtTime(1, now);
+    }
     const target = Math.max(0.0001, curve(this.musicVol) * 0.92);
     this.musicBus.gain.cancelScheduledValues(now);
     this.musicBus.gain.setValueAtTime(

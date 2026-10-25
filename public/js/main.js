@@ -1,7 +1,16 @@
 import { CITIES, CITY_BY_ID, getCity, nextCity } from "./cities.js";
 import { Scene } from "./scene.js";
 import { LofiEngine } from "./audio.js";
-import { STYLES, makeTrack, makeQueue } from "./titles.js";
+import { STYLES } from "./titles.js";
+import {
+  CATALOG,
+  CATEGORIES,
+  getTrack,
+  nextTrackInCategory,
+  trackIndex,
+  tracksForFilter,
+  upcomingTracks,
+} from "./catalog.js";
 import { drawPreview } from "./scenes.js";
 
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -14,20 +23,12 @@ const WEATHER_ICON = {
   snow: "#i-weather-snow",
   clear: "#i-weather-clear",
 };
-const VIBE_ICONS = {
-  jazzhop: "#i-music",
-  piano: "#i-headphones",
-  ambient: "#i-moon",
-  bossa: "#i-leaf",
-  synth: "#i-sunrise",
-  house: "#i-grid",
-};
 const TRACK_BARS = 32;
 const TOUR_DELAY = 90_000;
 
 const KEYS = {
   city: "lofi-skylines.city",
-  style: "lofi-skylines.style",
+  track: "lofi-skylines.track",
   weather: "lofi-skylines.weather",
   music: "lofi-skylines.music",
   ambience: "lofi-skylines.ambience",
@@ -51,12 +52,6 @@ function write(key, value) {
   }
 }
 
-function randomSeed() {
-  const values = new Uint32Array(1);
-  crypto.getRandomValues(values);
-  return values[0] || Date.now();
-}
-
 function initialCity() {
   const hash = decodeURIComponent(location.hash.replace(/^#/, ""));
   if (CITY_BY_ID[hash]) return CITY_BY_ID[hash];
@@ -65,22 +60,23 @@ function initialCity() {
 }
 
 const firstCity = initialCity();
-const savedStyle = read(KEYS.style);
 const savedWeather = read(KEYS.weather);
+const initialTrack = getTrack(read(KEYS.track)) || CATALOG[0];
 
 const state = {
   city: firstCity.id,
   weather: WEATHER_LABEL[savedWeather] ? savedWeather : firstCity.defaultWeather,
   weatherOverridden: Boolean(WEATHER_LABEL[savedWeather]),
-  style: STYLES[savedStyle] ? savedStyle : "jazzhop",
+  style: initialTrack.style,
   citySounds: read(KEYS.sounds, "1") !== "0",
   muted: false,
   playing: false,
   started: false,
   tour: false,
   tourTimer: 0,
-  track: null,
-  queue: [],
+  track: initialTrack,
+  queue: upcomingTracks(initialTrack, 4),
+  libraryFilter: "all",
   trackTimer: 0,
   trackEndAt: 0,
   trackRemaining: 0,
@@ -108,16 +104,14 @@ scene.setCity(state.city);
 scene.setWeather(state.weather);
 scene.start();
 
-audio.style = state.style;
-audio.seed = randomSeed();
+audio.style = state.track.style;
+audio.seed = state.track.seed;
+audio.recipe = state.track.recipe;
 audio.weather = state.weather;
 audio.musicVol = state.musicVol / 100;
 audio.ambienceVol = state.ambienceVol / 100;
 audio.citySounds = state.citySounds;
 audio.buildSong();
-
-state.track = makeTrack(state.city, state.weather, state.style, randomSeed());
-state.queue = makeQueue(state.city, state.weather, state.style, state.track.seed, 4);
 
 const els = {
   cityName: $("#cityName"),
@@ -144,6 +138,8 @@ const els = {
   timerClock: $("#timerClock"),
   timerStart: $("#timerStart"),
   cityGrid: $("#cityGrid"),
+  libraryTabs: $("#libraryTabs"),
+  songList: $("#songList"),
   toast: $("#toast"),
   player: $("#player"),
   body: document.body,
@@ -151,7 +147,7 @@ const els = {
 
 const dialogs = {
   cities: $("#citiesDialog"),
-  vibe: $("#vibeDialog"),
+  library: $("#libraryDialog"),
   queue: $("#queueDialog"),
   timer: $("#timerDialog"),
   help: $("#helpDialog"),
@@ -259,26 +255,29 @@ function updatePlayUI() {
 
 function updateTrackUI() {
   if (!state.started) {
-    els.trackTitle.textContent = "Press play for endless lofi";
-    els.trackSub.textContent = "music generated live in your browser";
+    els.trackTitle.textContent = "Press play for 30 generated tracks";
+    els.trackSub.textContent = "lo-fi · deep focus · focused EDM";
   } else {
-    const style = STYLES[state.style] || STYLES.jazzhop;
+    const style = STYLES[state.track.style] || STYLES.jazzhop;
     els.trackTitle.textContent = state.track.title;
     els.trackSub.textContent = state.playing
-      ? state.track.subtitle
-      : `paused · ${style.label.toLowerCase()} · ${style.bpm} bpm`;
+      ? `${state.track.subtitle} · ${state.track.durationLabel}`
+      : `paused · ${state.track.categoryLabel} · ${style.label} · ${state.track.bpm} bpm`;
   }
   updateMeta();
   if (dialogs.queue.open) renderQueue();
+  if (dialogs.library.open) updateLibraryActive();
 }
 
 function setMediaMetadata() {
   if (!("mediaSession" in navigator)) return;
   try {
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: state.track?.title || "Endless lofi",
+      title: state.track?.title || "Lofi Skylines",
       artist: "Lofi Skylines",
-      album: `${getCity(state.city).name} · ${WEATHER_LABEL[state.weather]}`,
+      album: state.track
+        ? `${state.track.categoryLabel} · ${state.track.styleLabel}`
+        : "30 generated tracks",
     });
     navigator.mediaSession.playbackState = state.playing ? "playing" : "paused";
   } catch {
@@ -299,20 +298,8 @@ function updateMediaSession() {
   }
 }
 
-function refreshTitles({ newSeed = true } = {}) {
-  const seed = newSeed ? randomSeed() : state.track?.seed || randomSeed();
-  state.track = makeTrack(state.city, state.weather, state.style, seed);
-  state.queue = makeQueue(state.city, state.weather, state.style, state.track.seed, 4);
-  state.trackRemaining = trackDurationMs();
-  updateTrackUI();
-  updateMediaSession();
-  if (state.playing) armTrackTimer();
-  else clearTrackTimer();
-}
-
 function trackDurationMs() {
-  const bpm = (STYLES[state.style] || STYLES.jazzhop).bpm;
-  return Math.round((60 / bpm) * 4 * TRACK_BARS * 1000);
+  return Math.round((60 / (state.track?.bpm || 76)) * 4 * TRACK_BARS * 1000);
 }
 
 function clearTrackTimer() {
@@ -342,45 +329,28 @@ function pauseTrackTimer() {
   clearTrackTimer();
 }
 
-function queuedTrack(seed = randomSeed()) {
-  const style = STYLES[state.style] || STYLES.jazzhop;
-  const track = makeTrack(state.city, state.weather, state.style, seed);
-  return {
-    title: track.title,
-    seed: track.seed,
-    subtitle: `${style.label.toLowerCase()} · ${style.bpm} bpm`,
-  };
-}
-
-function queueItemToTrack(item) {
-  const style = STYLES[state.style] || STYLES.jazzhop;
-  return {
-    title: item.title,
-    seed: item.seed,
-    style,
-    subtitle: `${style.label.toLowerCase()} · ${style.bpm} bpm · generated live`,
-  };
-}
-
-function playTrack(track, { auto = false } = {}) {
+function playCatalogTrack(track, { auto = false, start = false } = {}) {
   state.track = track;
+  state.style = track.style;
+  state.queue = upcomingTracks(track, 4);
   state.trackRemaining = trackDurationMs();
-  if (state.started) {
-    audio.next(track.seed);
-  } else {
-    audio.seed = track.seed;
-    audio.buildSong();
-  }
+  write(KEYS.track, track.id);
+
+  audio.next(track.seed, { style: track.style, recipe: track.recipe });
+
   updateTrackUI();
   updateMediaSession();
   if (state.playing) armTrackTimer();
   else clearTrackTimer();
+
   if (auto) showToast(`Now playing · ${track.title}`, 2400);
   else if (state.playing) showToast(`Playing · ${track.title}`, 2200);
   else showToast(`Ready · ${track.title}`, 2000);
+
+  if (start && !state.playing) togglePlay();
 }
 
-function setWeather(weather, { persist = true, silent = false, refresh = true } = {}) {
+function setWeather(weather, { persist = true, silent = false } = {}) {
   if (!WEATHER_LABEL[weather]) return;
   state.weather = weather;
   scene.setWeather(weather);
@@ -390,10 +360,7 @@ function setWeather(weather, { persist = true, silent = false, refresh = true } 
     write(KEYS.weather, weather);
   }
   updateWeatherUI();
-  if (refresh) {
-    refreshTitles();
-    renderCityGrid();
-  }
+  renderCityGrid();
   if (!silent) showToast(`Weather · ${WEATHER_LABEL[weather]}`);
 }
 
@@ -409,21 +376,6 @@ function setCitySounds(enabled, { silent = false } = {}) {
   write(KEYS.sounds, enabled ? "1" : "0");
   updateSoundsUI();
   if (!silent) showToast(enabled ? "Weather & city sounds on" : "Weather & city sounds off");
-}
-
-function setStyle(style, { silent = false } = {}) {
-  if (!STYLES[style]) return;
-  if (style === state.style) {
-    updateVibeUI();
-    return;
-  }
-  state.style = style;
-  write(KEYS.style, style);
-  audio.setStyle(style);
-  refreshTitles({ newSeed: true });
-  updateVibeUI();
-  if (dialogs.queue.open) renderQueue();
-  if (!silent) showToast(`Vibe · ${STYLES[style].label}`);
 }
 
 function switchCity(cityId, { silent = false, fromTour = false } = {}) {
@@ -444,7 +396,6 @@ function switchCity(cityId, { silent = false, fromTour = false } = {}) {
     updateWeatherUI();
   }
   applyCityUI();
-  refreshTitles();
   history.replaceState(null, "", `#${cityId}`);
   if (!fromTour) resetTourTimer();
   if (!silent) {
@@ -490,14 +441,14 @@ async function togglePlay() {
   els.playBtn.disabled = true;
   try {
     if (!state.started) {
-      audio.style = state.style;
+      audio.style = state.track.style;
       audio.seed = state.track.seed;
+      audio.recipe = state.track.recipe;
       audio.buildSong();
     }
     await audio.play();
     state.started = true;
     state.playing = true;
-    if (!state.track) refreshTitles();
     if (state.trackRemaining <= 0) state.trackRemaining = trackDurationMs();
     armTrackTimer(state.trackRemaining);
     updatePlayUI();
@@ -510,9 +461,7 @@ async function togglePlay() {
 }
 
 function nextTrack({ auto = false } = {}) {
-  const nextItem = state.queue.shift() || queuedTrack();
-  state.queue.push(queuedTrack());
-  playTrack(queueItemToTrack(nextItem), { auto });
+  playCatalogTrack(nextTrackInCategory(state.track), { auto });
 }
 
 function updateVolumeUI() {
@@ -676,11 +625,76 @@ function renderCityGrid() {
   });
 }
 
-function updateVibeUI() {
-  $$("#vibeList .vibe").forEach((button) => {
-    const active = button.dataset.style === state.style;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-pressed", String(active));
+function buildLibraryTabs() {
+  if (!els.libraryTabs) return;
+  const tabs = [
+    { id: "all", label: "All", count: CATALOG.length },
+    ...CATEGORIES.map((category) => ({
+      id: category.id,
+      label: category.label,
+      count: CATALOG.filter((track) => track.category === category.id).length,
+    })),
+  ];
+  els.libraryTabs.replaceChildren();
+  tabs.forEach((tab) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "library-tab";
+    button.dataset.filter = tab.id;
+    button.setAttribute("role", "tab");
+    button.innerHTML = `<span></span><small>${tab.count}</small>`;
+    $("span", button).textContent = tab.label;
+    button.addEventListener("click", () => {
+      state.libraryFilter = tab.id;
+      renderLibrary();
+    });
+    els.libraryTabs.append(button);
+  });
+}
+
+function renderLibrary() {
+  const list = els.songList;
+  if (!list) return;
+  $$(".library-tab", els.libraryTabs).forEach((tab) => {
+    const active = tab.dataset.filter === state.libraryFilter;
+    tab.classList.toggle("is-active", active);
+    tab.setAttribute("aria-selected", String(active));
+  });
+
+  const tracks = tracksForFilter(state.libraryFilter);
+  list.replaceChildren();
+  tracks.forEach((track) => {
+    const active = track.id === state.track.id;
+    const row = document.createElement("li");
+    row.className = "song-row";
+    row.dataset.trackId = track.id;
+    if (active) row.classList.add("is-active");
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "song-play";
+    const number = String(trackIndex(track) + 1).padStart(2, "0");
+    button.innerHTML = `<span class="song-index">${number}</span>
+      <span class="song-copy"><strong></strong><small></small></span>
+      <span class="song-tag cat-${track.category}">${track.categoryLabel}</span>
+      <span class="song-duration">${track.durationLabel}</span>
+      <span class="song-action"><svg class="icon"><use href="${
+        active && state.playing ? "#i-volume" : "#i-play"
+      }"></use></svg></span>`;
+    $("strong", button).textContent = track.title;
+    $("small", button).textContent = `${track.styleLabel} · ${track.bpm} bpm`;
+    button.setAttribute("aria-label", `Play ${track.title}`);
+    button.addEventListener("click", () => playCatalogTrack(track, { start: true }));
+    row.append(button);
+    list.append(row);
+  });
+}
+
+function updateLibraryActive() {
+  $$(".song-row", els.songList).forEach((row) => {
+    const active = row.dataset.trackId === state.track.id;
+    row.classList.toggle("is-active", active);
+    const use = $(".song-action use", row);
+    if (use) use.setAttribute("href", active && state.playing ? "#i-volume" : "#i-play");
   });
 }
 
@@ -688,13 +702,12 @@ function renderQueue() {
   const list = $("#queueList");
   if (!list) return;
   list.replaceChildren();
-  const style = STYLES[state.style] || STYLES.jazzhop;
   const status = state.playing ? "playing" : state.started ? "paused" : "ready";
   const current = document.createElement("li");
   current.className = "queue-item is-current";
   current.innerHTML = `
     <span class="queue-index">Now</span>
-    <span class="queue-copy"><strong></strong><small>${style.label} · ${status}</small></span>
+    <span class="queue-copy"><strong></strong><small>${state.track.categoryLabel} · ${state.track.styleLabel} · ${status}</small></span>
     <span class="queue-current">${state.playing ? "Playing" : state.started ? "Paused" : "Ready"}</span>
   `;
   $("strong", current).textContent = state.track.title;
@@ -710,39 +723,14 @@ function renderQueue() {
       <span class="queue-copy"><strong></strong><small></small></span>
       <span class="queue-play-icon"><svg class="icon"><use href="#i-play"></use></svg></span>`;
     $("strong", button).textContent = item.title;
-    $("small", button).textContent = item.subtitle;
+    $("small", button).textContent = `${item.categoryLabel} · ${item.styleLabel} · ${item.bpm} bpm`;
     button.addEventListener("click", () => {
-      const queueIndex = state.queue.indexOf(item);
-      if (queueIndex >= 0) state.queue.splice(queueIndex, 1);
-      state.queue.push(queuedTrack());
-      playTrack(queueItemToTrack(item));
+      playCatalogTrack(item, { start: true });
       closeDialog(dialogs.queue);
     });
     row.append(button);
     list.append(row);
   });
-}
-
-function buildVibeList() {
-  const list = $("#vibeList");
-  if (!list) return;
-  list.replaceChildren();
-  Object.values(STYLES).forEach((style) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "vibe";
-    button.dataset.style = style.id;
-    button.innerHTML = `<span class="vibe-icon"><svg class="icon"><use href="${
-      VIBE_ICONS[style.id] || "#i-music"
-    }"></use></svg></span>
-      <span class="vibe-copy"><strong></strong><small></small></span>
-      <span class="vibe-check"><svg class="icon"><use href="#i-check"></use></svg></span>`;
-    $("strong", button).textContent = style.label;
-    $("small", button).textContent = `${style.blurb} · ${style.bpm} BPM`;
-    button.addEventListener("click", () => setStyle(style.id));
-    list.append(button);
-  });
-  updateVibeUI();
 }
 
 function fillGuide() {
@@ -865,19 +853,19 @@ function bindUI() {
   $("#tourBtn").addEventListener("click", () => setTour(!state.tour));
   $("#radioBtn").addEventListener("click", () => setCitySounds(!state.citySounds));
 
-  $("#vibeBtn").addEventListener("click", () => {
-    updateVibeUI();
-    openDialog(dialogs.vibe);
+  $("#libraryBtn").addEventListener("click", () => {
+    renderLibrary();
+    openDialog(dialogs.library);
   });
 
   $("#queueBtn").addEventListener("click", () => {
     renderQueue();
     openDialog(dialogs.queue);
   });
-  $("#shuffleQueue").addEventListener("click", () => {
-    state.queue = makeQueue(state.city, state.weather, state.style, randomSeed(), 4);
-    renderQueue();
-    showToast("The night has been reshuffled");
+  $("#browseLibrary").addEventListener("click", () => {
+    closeDialog(dialogs.queue);
+    renderLibrary();
+    openDialog(dialogs.library);
   });
 
   $("#timerBtn").addEventListener("click", () => openDialog(dialogs.timer));
@@ -889,7 +877,6 @@ function bindUI() {
 
   $("#helpBtn").addEventListener("click", () => openDialog(dialogs.help));
   $("#aboutBtn").addEventListener("click", () => openDialog(dialogs.about));
-  $("#aboutBtnMobile").addEventListener("click", () => openDialog(dialogs.about));
   $("#guideBtn").addEventListener("click", () => {
     fillGuide();
     openDialog(dialogs.guide);
@@ -949,8 +936,8 @@ function bindUI() {
         cycleWeather();
         break;
       case "v":
-        updateVibeUI();
-        openDialog(dialogs.vibe);
+        renderLibrary();
+        openDialog(dialogs.library);
         break;
       case "t":
         openDialog(dialogs.timer);
@@ -1003,7 +990,7 @@ function bindUI() {
 
 function init() {
   buildCityGrid();
-  buildVibeList();
+  buildLibraryTabs();
   updateWeatherUI();
   updateSoundsUI();
   updateTourUI();
@@ -1015,7 +1002,16 @@ function init() {
   updateClock();
   window.setInterval(updateClock, 1000);
   if (new URLSearchParams(location.search).has("debug")) {
-    window.__lofi = { audio, scene, state, showToast, nextTrack, playTrack, armTrackTimer, trackDurationMs };
+    window.__lofi = {
+      audio,
+      scene,
+      state,
+      showToast,
+      nextTrack,
+      playCatalogTrack,
+      armTrackTimer,
+      trackDurationMs,
+    };
   }
   requestAnimationFrame(() => document.body.classList.add("is-ready"));
 }
