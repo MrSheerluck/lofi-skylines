@@ -1,0 +1,23 @@
+{
+  "name": "lofi-skylines",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pixel-art city nights with endless lofi, generated live in your browser.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MrSheerluck/lofi-skylines.git"
+  },
+  "homepage": "https://lofi-skylines.mrsheerluck003.workers.dev",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev --port 8788"
+  },
+  "devDependencies": {
+    "wrangler": "^4.42.0"
+  }
+}

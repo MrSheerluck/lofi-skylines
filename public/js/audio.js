@@ -1,0 +1,805 @@
+const STYLE_CONFIG = {
+  jazzhop: {
+    bpm: 76,
+    swing: 0.16,
+    pad: 0.35,
+    chordHits: [0, 6],
+    kick: [0, 7, 10],
+    snare: [4, 12],
+    hats: [0, 2, 4, 6, 8, 10, 12, 14],
+    openHat: [14],
+    bass: [0, 6, 10, 14],
+    melody: [0, 3, 6, 10, 12, 14],
+    drumKind: "boom",
+  },
+  piano: {
+    bpm: 67,
+    swing: 0.1,
+    pad: 0.18,
+    chordHits: [0],
+    kick: [0, 8],
+    snare: [4, 12],
+    hats: [2, 6, 10, 14],
+    openHat: [],
+    bass: [0, 8],
+    melody: [0, 2, 4, 6, 8, 10, 12, 14],
+    drumKind: "brush",
+  },
+  ambient: {
+    bpm: 56,
+    swing: 0,
+    pad: 0.9,
+    chordHits: [0],
+    kick: [],
+    snare: [],
+    hats: [],
+    openHat: [],
+    bass: [0],
+    melody: [0, 8],
+    drumKind: "none",
+  },
+};
+
+const CHORDS = {
+  Fmaj9: { notes: [53, 57, 60, 64, 67], root: 41 },
+  Dm9: { notes: [50, 53, 57, 60, 64], root: 38 },
+  Gm9: { notes: [55, 58, 62, 65, 69], root: 43 },
+  C9: { notes: [48, 52, 55, 58, 62], root: 36 },
+  Am9: { notes: [45, 48, 52, 55, 59], root: 33 },
+  G13: { notes: [55, 59, 62, 65, 69], root: 43 },
+  Cmaj9: { notes: [48, 52, 55, 59, 62], root: 36 },
+  A7b9: { notes: [45, 49, 52, 55, 58], root: 33 },
+  Bbmaj7: { notes: [46, 50, 53, 57], root: 34 },
+  C7: { notes: [48, 52, 55, 58], root: 36 },
+  Dm7: { notes: [50, 53, 57, 60], root: 38 },
+  Fmaj7: { notes: [53, 57, 60, 64], root: 41 },
+  Am7: { notes: [45, 48, 52, 55], root: 33 },
+  Cmaj7: { notes: [48, 52, 55, 59], root: 36 },
+  G7: { notes: [55, 59, 62, 65], root: 43 },
+  Dmaj9: { notes: [50, 54, 57, 61, 64], root: 38 },
+  Bm11: { notes: [47, 50, 54, 57, 62], root: 35 },
+  Gmaj9: { notes: [43, 47, 50, 54, 59], root: 31 },
+  A7sus: { notes: [45, 50, 52, 55, 59], root: 33 },
+};
+
+const PROGRESSIONS = {
+  jazzhop: [
+    ["Fmaj9", "Dm9", "Gm9", "C9"],
+    ["Am9", "Dm9", "Gm9", "C9"],
+    ["Dm9", "G13", "Cmaj9", "A7b9"],
+    ["Fmaj9", "Am9", "Dm9", "G13"],
+  ],
+  piano: [
+    ["Fmaj7", "Dm7", "Bbmaj7", "C7"],
+    ["Am7", "Fmaj7", "Cmaj7", "G7"],
+    ["Dm7", "Bbmaj7", "Fmaj7", "C7"],
+  ],
+  ambient: [
+    ["Dmaj9", "Bm11", "Gmaj9", "A7sus"],
+    ["Bm11", "Gmaj9", "Dmaj9", "A7sus"],
+  ],
+};
+
+function midiToFreq(note) {
+  return 440 * Math.pow(2, (note - 69) / 12);
+}
+
+function curve(value) {
+  return Math.pow(Math.max(0, Math.min(1, value)), 1.7);
+}
+
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function random() {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export class LofiEngine {
+  constructor() {
+    this.ctx = null;
+    this.started = false;
+    this.playing = false;
+    this.style = "jazzhop";
+    this.pendingStyle = null;
+    this.weather = "rain";
+    this.citySounds = true;
+    this.musicVol = 0.72;
+    this.ambienceVol = 0.55;
+    this.muted = false;
+    this.seed = 1;
+    this.step = 0;
+    this.nextStepTime = 0;
+    this.timer = 0;
+    this.song = null;
+    this.styleConfig = STYLE_CONFIG[this.style];
+    this.random = mulberry32(this.seed);
+    this.noise = new Map();
+  }
+
+  async ensure() {
+    if (this.ctx) {
+      if (this.ctx.state === "suspended") await this.ctx.resume();
+      return this.ctx;
+    }
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error("Web Audio is not supported in this browser.");
+    this.ctx = new AudioContextClass({ latencyHint: "playback" });
+    this.buildGraph();
+    this.buildAmbience();
+    this.startVinyl();
+    this.buildSong();
+    this.nextStepTime = this.ctx.currentTime + 0.12;
+    this.timer = window.setInterval(() => this.tick(), 40);
+    await this.ctx.resume();
+    this.started = true;
+    return this.ctx;
+  }
+
+  buildGraph() {
+    const ctx = this.ctx;
+    this.compressor = ctx.createDynamicsCompressor();
+    this.compressor.threshold.value = -19;
+    this.compressor.knee.value = 22;
+    this.compressor.ratio.value = 3.5;
+    this.compressor.attack.value = 0.008;
+    this.compressor.release.value = 0.28;
+    this.compressor.connect(ctx.destination);
+
+    this.master = ctx.createGain();
+    this.master.gain.value = 0.72;
+    this.master.connect(this.compressor);
+
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = "highpass";
+    highpass.frequency.value = 24;
+    highpass.connect(this.master);
+
+    this.musicBus = ctx.createGain();
+    this.musicBus.gain.value = curve(this.musicVol) * 0.92;
+    this.musicBus.connect(highpass);
+
+    this.ambienceBus = ctx.createGain();
+    this.ambienceBus.gain.value = this.citySounds ? curve(this.ambienceVol) * 0.85 : 0;
+    this.ambienceBus.connect(highpass);
+
+    const impulseLength = Math.floor(ctx.sampleRate * 2.6);
+    const impulse = ctx.createBuffer(2, impulseLength, ctx.sampleRate);
+    for (let channel = 0; channel < 2; channel += 1) {
+      const data = impulse.getChannelData(channel);
+      for (let i = 0; i < impulseLength; i += 1) {
+        const decay = Math.pow(1 - i / impulseLength, 2.7);
+        data[i] = (Math.random() * 2 - 1) * decay;
+      }
+    }
+    this.reverb = ctx.createConvolver();
+    this.reverb.buffer = impulse;
+    this.reverbSend = ctx.createGain();
+    this.reverbSend.gain.value = 0.3;
+    this.reverbSend.connect(this.reverb);
+    this.reverb.connect(this.master);
+
+    this.delay = ctx.createDelay(1);
+    this.delay.delayTime.value = 0.365;
+    this.delayFilter = ctx.createBiquadFilter();
+    this.delayFilter.type = "lowpass";
+    this.delayFilter.frequency.value = 2400;
+    this.delayFeedback = ctx.createGain();
+    this.delayFeedback.gain.value = 0.25;
+    this.delaySend = ctx.createGain();
+    this.delaySend.gain.value = 0.22;
+    this.delaySend.connect(this.delay);
+    this.delay.connect(this.delayFilter);
+    this.delayFilter.connect(this.delayFeedback);
+    this.delayFeedback.connect(this.delay);
+    this.delayFilter.connect(this.master);
+
+    if (this.muted) this.master.gain.value = 0;
+  }
+
+  noiseBuffer(seconds, brown = false) {
+    const key = `${seconds}:${brown ? "brown" : "white"}`;
+    if (this.noise.has(key)) return this.noise.get(key);
+    const ctx = this.ctx;
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * seconds), ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < data.length; i += 1) {
+      const white = Math.random() * 2 - 1;
+      if (brown) {
+        last = (last + 0.02 * white) / 1.02;
+        data[i] = last * 3.4;
+      } else {
+        data[i] = white;
+      }
+    }
+    this.noise.set(key, buffer);
+    return buffer;
+  }
+
+  buildAmbience() {
+    const ctx = this.ctx;
+    const makeLayer = (filterType, frequency, q, gainValue) => {
+      const source = ctx.createBufferSource();
+      source.buffer = this.noiseBuffer(3, filterType === "lowpass");
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = filterType;
+      filter.frequency.value = frequency;
+      filter.Q.value = q;
+      const gain = ctx.createGain();
+      gain.gain.value = gainValue;
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ambienceBus);
+      source.start();
+      return { source, filter, gain };
+    };
+
+    this.rainLayer = makeLayer("bandpass", 1250, 0.45, 0.5);
+    const rainTop = ctx.createBiquadFilter();
+    rainTop.type = "lowpass";
+    rainTop.frequency.value = 5500;
+    this.rainLayer.filter.disconnect();
+    this.rainLayer.filter.connect(rainTop);
+    rainTop.connect(this.rainLayer.gain);
+
+    this.windLayer = makeLayer("lowpass", 420, 0.4, 0.25);
+    this.humLayer = makeLayer("lowpass", 180, 0.7, 0.18);
+
+    const windLfo = ctx.createOscillator();
+    windLfo.frequency.value = 0.075;
+    const windDepth = ctx.createGain();
+    windDepth.gain.value = 140;
+    windLfo.connect(windDepth);
+    windDepth.connect(this.windLayer.filter.frequency);
+    windLfo.start();
+
+    this.applyWeatherLayers();
+  }
+
+  applyWeatherLayers() {
+    if (!this.ctx || !this.rainLayer) return;
+    const now = this.ctx.currentTime;
+    const targets = {
+      rain: { rain: 0.6, wind: 0.12, hum: 0.1 },
+      snow: { rain: 0, wind: 0.5, hum: 0.12 },
+      clear: { rain: 0, wind: 0.08, hum: 0.26 },
+    }[this.weather] || { rain: 0.4, wind: 0.1, hum: 0.1 };
+
+    this.rainLayer.gain.gain.setTargetAtTime(targets.rain, now, 0.8);
+    this.windLayer.gain.gain.setTargetAtTime(targets.wind, now, 0.8);
+    this.humLayer.gain.gain.setTargetAtTime(targets.hum, now, 0.8);
+  }
+
+  startVinyl() {
+    const ctx = this.ctx;
+    const length = ctx.sampleRate * 6;
+    const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i += 1) {
+      data[i] = (Math.random() * 2 - 1) * 0.012;
+    }
+    const random = mulberry32(731);
+    for (let i = 0; i < 80; i += 1) {
+      const index = Math.floor(random() * (length - 30));
+      const amp = 0.05 + random() * 0.18;
+      for (let j = 0; j < 4 + Math.floor(random() * 8); j += 1) {
+        if (index + j < length) data[index + j] += amp * Math.exp(-j * 0.55) * (random() > 0.5 ? 1 : -1);
+      }
+    }
+    this.vinyl = ctx.createBufferSource();
+    this.vinyl.buffer = buffer;
+    this.vinyl.loop = true;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 2200;
+    filter.Q.value = 0.3;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.07;
+    this.vinyl.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicBus);
+    this.vinyl.start();
+  }
+
+  buildSong() {
+    const random = mulberry32(this.seed);
+    const style = STYLE_CONFIG[this.style] || STYLE_CONFIG.jazzhop;
+    const progressions = PROGRESSIONS[this.style] || PROGRESSIONS.jazzhop;
+    const progression = progressions[Math.floor(random() * progressions.length)];
+    this.song = {
+      progression: progression.map((name) => CHORDS[name]),
+      bpmOffset: Math.floor(random() * 7) - 3,
+      swingOffset: random() * 0.03,
+      fill: random() > 0.55,
+      melodyDensity: 0.35 + random() * 0.25,
+      melodyOctave: random() > 0.5 ? 12 : 24,
+      variation: Math.floor(random() * 7),
+    };
+    this.styleConfig = style;
+  }
+
+  applyPendingStyle() {
+    if (!this.pendingStyle) return false;
+    this.style = this.pendingStyle;
+    this.pendingStyle = null;
+    this.buildSong();
+    return true;
+  }
+
+  get bpm() {
+    return this.styleConfig.bpm + (this.song ? this.song.bpmOffset : 0);
+  }
+
+  get stepDuration() {
+    return 60 / this.bpm / 4;
+  }
+
+  tick() {
+    if (!this.ctx || !this.playing) return;
+    const ctx = this.ctx;
+    while (this.nextStepTime < ctx.currentTime + 0.38) {
+      if (this.step % 16 === 0) this.applyPendingStyle();
+      const stepDuration = this.stepDuration;
+      this.scheduleStep(this.step, this.nextStepTime, stepDuration);
+      this.nextStepTime += stepDuration;
+      this.step += 1;
+    }
+  }
+
+  scheduleStep(step, time, stepDuration) {
+    const config = this.styleConfig;
+    const song = this.song;
+    const local = step % 16;
+    const bar = Math.floor(step / 16);
+    const chord = song.progression[bar % 4];
+    const random = mulberry32(this.seed + bar * 131 + local * 17);
+    const swing = local % 2 === 1 ? stepDuration * (config.swing + song.swingOffset) : 0;
+    const t = time + swing;
+
+    if (local === 0) {
+      this.scheduleChord(chord, time, stepDuration * 16 * 0.92, config, bar);
+      if (config.pad > 0.2) {
+        this.schedulePad(chord.notes, time, stepDuration * 16 * (this.style === "ambient" ? 2 : 1), config.pad);
+      }
+      this.scheduleBarMelody(bar, chord, time, stepDuration, random);
+    }
+
+    if (config.chordHits.includes(local) && local !== 0) {
+      this.scheduleChord(chord, t, stepDuration * 4.8, config, bar, 0.55);
+    }
+
+    if (config.kick.includes(local)) {
+      this.scheduleKick(time + (local === 7 ? 0.006 : 0), 0.72);
+    }
+    if (config.snare.includes(local)) {
+      this.scheduleSnare(t, config.drumKind === "brush" ? 0.35 : 0.55, config.drumKind === "brush");
+    }
+    if (config.drumKind !== "none" && local === 11 && random() > 0.65) {
+      this.scheduleSnare(t + 0.008, 0.18, true);
+    }
+    if (config.hats.includes(local)) {
+      const accent = local === 0 || local === 8 ? 0.16 : 0.1;
+      this.scheduleHat(t, accent + random() * 0.04, false);
+    }
+    if (config.openHat.includes(local)) {
+      this.scheduleHat(t, 0.08, true);
+    }
+    if (config.drumKind === "boom" && local === 6 && random() > 0.7) {
+      this.scheduleRim(t, 0.12);
+    }
+
+    if (config.bass.includes(local)) {
+      const total = config.bass.length;
+      const index = config.bass.indexOf(local);
+      let note = chord.root;
+      if (local === 6) note += 7;
+      if (local === 10) note += 12;
+      if (local === 14 && this.style === "jazzhop") note += 7;
+      if (local === 8) note += 7;
+      const length = this.style === "ambient" ? stepDuration * 14 : stepDuration * (index === total - 1 ? 2.2 : 4.4);
+      this.scheduleBass(note, t, length, local === 0 ? 0.24 : 0.16);
+    }
+
+    // Sparse melody notes between the generated bar phrases.
+    if (local !== 0 && config.melody.includes(local) && random() < song.melodyDensity * 0.55) {
+      const notes = chord.notes;
+      const note = notes[Math.floor(random() * notes.length)] + song.melodyOctave;
+      this.schedulePluck(note, t, 0.08 + random() * 0.06, this.style === "piano" ? 0.18 : 0.28);
+    }
+  }
+
+  scheduleChord(chord, time, duration, config, bar, velocity = 1) {
+    if (this.style === "piano") {
+      const pattern = [0, 2, 4, 2, 1, 3, 4, 2];
+      const start = Math.floor(mulberry32(this.seed + bar)() * 2);
+      chord.notes.forEach((note, index) => {
+        const offset = this.stepDuration * (pattern[(index + start) % pattern.length] || 0);
+        this.scheduleRhodes(note + 12, time + offset, duration * 0.45, 0.065 * velocity, 0.12);
+      });
+      return;
+    }
+    chord.notes.forEach((note, index) => {
+      const strum = index * (0.007 + (this.seed % 5) * 0.001);
+      this.scheduleRhodes(
+        note + (this.style === "ambient" ? 12 : 0),
+        time + strum,
+        duration,
+        (this.style === "ambient" ? 0.045 : 0.075) * velocity,
+        0.2,
+      );
+    });
+  }
+
+  scheduleBarMelody(bar, chord, time, stepDuration, random) {
+    const config = this.styleConfig;
+    if (config.melody.length === 0) return;
+    const density = this.song.melodyDensity;
+    const phraseSeed = this.seed + bar * 73;
+    const phraseRandom = mulberry32(phraseSeed);
+    const phraseLength = 2 + Math.floor(phraseRandom() * 3);
+    const rhythm = [];
+    for (let i = 0; i < phraseLength; i += 1) {
+      rhythm.push([0, 3, 6, 8, 10, 12, 14][Math.floor(phraseRandom() * 7)]);
+    }
+    rhythm.sort((a, b) => a - b);
+
+    const usePluck = this.style !== "piano";
+    for (const position of rhythm) {
+      if (phraseRandom() > density + 0.15) continue;
+      const note = chord.notes[Math.floor(phraseRandom() * chord.notes.length)] + this.song.melodyOctave;
+      const offset = position * stepDuration;
+      if (usePluck) {
+        this.schedulePluck(note, time + offset, 0.32 + phraseRandom() * 0.4, 0.24);
+      } else {
+        this.scheduleRhodes(note, time + offset, stepDuration * 2.5, 0.08, 0.18);
+      }
+    }
+  }
+
+  connectVoice(node, reverbAmount = 0.15, delayAmount = 0) {
+    const ctx = this.ctx;
+    node.connect(this.musicBus);
+    if (reverbAmount > 0) {
+      const send = ctx.createGain();
+      send.gain.value = reverbAmount;
+      node.connect(send);
+      send.connect(this.reverbSend);
+    }
+    if (delayAmount > 0) {
+      const send = ctx.createGain();
+      send.gain.value = delayAmount;
+      node.connect(send);
+      send.connect(this.delaySend);
+    }
+  }
+
+  scheduleRhodes(note, time, duration, velocity, reverb = 0.15) {
+    const ctx = this.ctx;
+    const frequency = midiToFreq(note);
+    const carrier = ctx.createOscillator();
+    carrier.type = "sine";
+    carrier.frequency.setValueAtTime(frequency, time);
+
+    const modulator = ctx.createOscillator();
+    modulator.type = "sine";
+    modulator.frequency.value = frequency * 2.01;
+    const modulation = ctx.createGain();
+    modulation.gain.value = frequency * (0.18 + velocity * 0.8);
+    modulator.connect(modulation);
+    modulation.connect(carrier.frequency);
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 1500 + velocity * 9000;
+    filter.Q.value = 0.6;
+
+    const gain = ctx.createGain();
+    const peak = Math.max(0.003, velocity);
+    const attack = 0.012;
+    const release = Math.max(0.08, duration * 0.7);
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(peak, time + attack);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0015, peak * 0.24), time + attack + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + attack + release);
+
+    carrier.connect(filter);
+    filter.connect(gain);
+    this.connectVoice(gain, reverb, 0.05);
+
+    const stop = time + attack + release + 0.1;
+    carrier.start(time);
+    modulator.start(time);
+    carrier.stop(stop);
+    modulator.stop(stop);
+  }
+
+  scheduleBass(note, time, duration, velocity) {
+    const ctx = this.ctx;
+    const frequency = midiToFreq(note);
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(frequency, time);
+    const sub = ctx.createOscillator();
+    sub.type = "sine";
+    sub.frequency.setValueAtTime(frequency / 2, time);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 320;
+    filter.Q.value = 0.8;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(velocity, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(velocity * 0.45, time + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    const subGain = ctx.createGain();
+    subGain.gain.value = 0.35;
+    osc.connect(filter);
+    sub.connect(subGain);
+    subGain.connect(filter);
+    filter.connect(gain);
+    this.connectVoice(gain, 0.06, 0);
+    osc.start(time);
+    sub.start(time);
+    osc.stop(time + duration + 0.05);
+    sub.stop(time + duration + 0.05);
+  }
+
+  schedulePad(notes, time, duration, level) {
+    const ctx = this.ctx;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(level * 0.035, time + Math.min(1.6, duration * 0.3));
+    gain.gain.setValueAtTime(level * 0.035, time + duration * 0.65);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 900;
+    filter.Q.value = 0.3;
+    filter.connect(gain);
+
+    notes.forEach((note, index) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.value = midiToFreq(note);
+      osc.detune.value = index % 2 === 0 ? -5 : 5;
+      const voiceGain = ctx.createGain();
+      voiceGain.gain.value = 0.16;
+      osc.connect(voiceGain);
+      voiceGain.connect(filter);
+      osc.start(time);
+      osc.stop(time + duration + 0.1);
+    });
+    this.connectVoice(gain, 0.45, 0.08);
+  }
+
+  schedulePluck(note, time, velocity, reverb = 0.28) {
+    const ctx = this.ctx;
+    const frequency = midiToFreq(note);
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(frequency, time);
+    const sine = ctx.createOscillator();
+    sine.type = "sine";
+    sine.frequency.setValueAtTime(frequency * 2, time);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.setValueAtTime(3200, time);
+    filter.frequency.exponentialRampToValueAtTime(900, time + 0.4);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(velocity, time + 0.006);
+    gain.gain.exponentialRampToValueAtTime(velocity * 0.25, time + 0.22);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.55);
+    const sineGain = ctx.createGain();
+    sineGain.gain.value = 0.25;
+    osc.connect(filter);
+    sine.connect(sineGain);
+    sineGain.connect(filter);
+    filter.connect(gain);
+    this.connectVoice(gain, reverb, 0.22);
+    osc.start(time);
+    sine.start(time);
+    osc.stop(time + 0.6);
+    sine.stop(time + 0.6);
+  }
+
+  scheduleKick(time, velocity) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(140, time);
+    osc.frequency.exponentialRampToValueAtTime(43, time + 0.12);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(velocity * 0.55, time + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.32);
+    osc.connect(gain);
+    gain.connect(this.musicBus);
+    const click = ctx.createBufferSource();
+    click.buffer = this.noiseBuffer(0.04);
+    const clickFilter = ctx.createBiquadFilter();
+    clickFilter.type = "lowpass";
+    clickFilter.frequency.value = 1200;
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0.035, time);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.025);
+    click.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(this.musicBus);
+    osc.start(time);
+    osc.stop(time + 0.36);
+    click.start(time);
+  }
+
+  scheduleSnare(time, velocity, brush = false) {
+    const ctx = this.ctx;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer(0.3);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = brush ? 2300 : 1800;
+    filter.Q.value = brush ? 0.5 : 0.8;
+    const gain = ctx.createGain();
+    const attack = brush ? 0.035 : 0.004;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(velocity * (brush ? 0.19 : 0.28), time + attack);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + (brush ? 0.36 : 0.18));
+    noise.connect(filter);
+    filter.connect(gain);
+    this.connectVoice(gain, 0.18, 0);
+
+    const body = ctx.createOscillator();
+    body.type = "triangle";
+    body.frequency.setValueAtTime(185, time);
+    body.frequency.exponentialRampToValueAtTime(145, time + 0.1);
+    const bodyGain = ctx.createGain();
+    bodyGain.gain.setValueAtTime(velocity * (brush ? 0.05 : 0.12), time);
+    bodyGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.12);
+    body.connect(bodyGain);
+    bodyGain.connect(this.musicBus);
+
+    noise.start(time);
+    noise.stop(time + 0.4);
+    body.start(time);
+    body.stop(time + 0.14);
+  }
+
+  scheduleHat(time, velocity, open = false) {
+    const ctx = this.ctx;
+    const noise = ctx.createBufferSource();
+    noise.buffer = this.noiseBuffer(0.2);
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 6900;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(velocity * 0.32, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + (open ? 0.24 : 0.055));
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicBus);
+    noise.start(time);
+    noise.stop(time + (open ? 0.28 : 0.08));
+  }
+
+  scheduleRim(time, velocity) {
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.type = "square";
+    osc.frequency.value = 1900;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 1900;
+    filter.Q.value = 4;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(velocity * 0.15, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.musicBus);
+    osc.start(time);
+    osc.stop(time + 0.06);
+  }
+
+  chime() {
+    if (!this.ctx || !this.playing) return;
+    const now = this.ctx.currentTime + 0.05;
+    [72, 76, 79, 84].forEach((note, index) => {
+      const ctx = this.ctx;
+      const time = now + index * 0.18;
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = midiToFreq(note);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, time);
+      gain.gain.linearRampToValueAtTime(0.09, time + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + 1.8);
+      osc.connect(gain);
+      this.connectVoice(gain, 0.6, 0.2);
+      osc.start(time);
+      osc.stop(time + 1.9);
+    });
+  }
+
+  async play() {
+    await this.ensure();
+    if (this.ctx.state === "suspended") await this.ctx.resume();
+    this.playing = true;
+    if (this.nextStepTime < this.ctx.currentTime) {
+      this.nextStepTime = this.ctx.currentTime + 0.06;
+    }
+  }
+
+  async pause() {
+    this.playing = false;
+    if (this.ctx && this.ctx.state === "running") await this.ctx.suspend();
+  }
+
+  async toggle() {
+    if (this.playing) await this.pause();
+    else await this.play();
+    return this.playing;
+  }
+
+  next(seed) {
+    this.seed = seed >>> 0;
+    this.buildSong();
+  }
+
+  setStyle(style) {
+    if (!STYLE_CONFIG[style] || style === this.style) {
+      this.pendingStyle = null;
+      return;
+    }
+    this.style = style;
+    this.pendingStyle = style;
+    if (!this.ctx) this.buildSong();
+  }
+
+  applyStyleNow(style) {
+    if (!STYLE_CONFIG[style]) return;
+    this.style = style;
+    this.pendingStyle = null;
+    this.buildSong();
+    this.step = 0;
+    this.nextStepTime = this.ctx ? this.ctx.currentTime + 0.1 : 0;
+  }
+
+  setWeather(weather) {
+    this.weather = weather;
+    this.applyWeatherLayers();
+  }
+
+  setCitySounds(enabled) {
+    this.citySounds = enabled;
+    if (!this.ctx) return;
+    const target = enabled ? curve(this.ambienceVol) * 0.85 : 0;
+    this.ambienceBus.gain.setTargetAtTime(target, this.ctx.currentTime, 0.08);
+  }
+
+  setMusicVolume(value) {
+    this.musicVol = value;
+    if (this.ctx) {
+      this.musicBus.gain.setTargetAtTime(curve(value) * 0.92, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  setAmbienceVolume(value) {
+    this.ambienceVol = value;
+    if (this.ctx) {
+      const target = this.citySounds ? curve(value) * 0.85 : 0;
+      this.ambienceBus.gain.setTargetAtTime(target, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  setMuted(muted) {
+    this.muted = muted;
+    if (!this.ctx) return;
+    this.master.gain.setTargetAtTime(muted ? 0 : 0.72, this.ctx.currentTime, 0.04);
+  }
+}
