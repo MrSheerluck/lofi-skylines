@@ -406,7 +406,7 @@ function setWeather(weather, { persist = true, silent = false } = {}) {
     write(KEYS.weather, weather);
   }
   updateWeatherUI();
-  renderCityGrid();
+  if (dialogs.cities.open) renderCityGrid();
   if (!silent) showToast(`Weather · ${WEATHER_BY_ID[weather].label}`);
 }
 
@@ -1009,8 +1009,13 @@ function bindUI() {
       case "3":
       case "4":
       case "5":
-      case "6": {
-        const city = CITIES[Number(event.key) - 1];
+      case "6":
+      case "7":
+      case "8":
+      case "9":
+      case "0": {
+        const index = event.key === "0" ? 9 : Number(event.key) - 1;
+        const city = CITIES[index];
         if (city) switchCity(city.id);
         break;
       }

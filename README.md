@@ -8,17 +8,17 @@ A small, free, open-source tribute to [Lofi Cities](https://loficities.com).
 **Buy me a coffee:** <https://buymeacoffee.com/mrsheerlucx>
 **GitHub Sponsors:** <https://github.com/sponsors/MrSheerluck>
 
-Six hand-built scenes — Tokyo in neon rain, Paris at blue hour, the Brooklyn
-Bridge in snow, London in fog, Seoul below Namsan, and Rio after dark — each
-drawn pixel by pixel on a 480 × 270 canvas. Every note is synthesized with the
-Web Audio API. No samples, no streams, no account, no ads.
+Fourteen hand-built scenes — Tokyo, Paris, New York, London, Seoul, Rio,
+Istanbul, Cairo, Singapore, Sydney, Amsterdam, Bangkok, Dubai and Hong Kong —
+each drawn pixel by pixel on a 480 × 270 canvas. Every note is synthesized with
+the Web Audio API. No samples, no streams, no account, no ads.
 
 ![Lofi Skylines](public/assets/og.png)
 
 ## What's inside
 
-- **Six animated pixel cities** with rain, snow, fog, clouds, traffic, trains,
-  pedestrians, birds, blinking signs, reflections, and falling leaves.
+- **Fourteen animated pixel cities** with rain, snow, fog, clouds, traffic,
+  trains, pedestrians, birds, blinking signs, reflections, and falling leaves.
 - **A 30-track library in three moods:** ten lo-fi tracks, ten deep-focus
   tracks, and ten focused-EDM tracks. Every track has its own tempo, key
   transposition, chord progression, melody density, and drum recipe.
@@ -138,7 +138,7 @@ music library — follows automatically.
 | `F` | Fullscreen |
 | `M` | Mute / unmute |
 | `A` | Weather &amp; city sounds on / off |
-| `1`–`6` | Jump to a city |
+| `1`–`9`, `0` | Jump to the first ten cities |
 | `←` `→` | Previous / next city |
 | `?` | Shortcuts |
 | `Esc` | Close a panel |

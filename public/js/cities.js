@@ -131,6 +131,182 @@ export const CITIES = [
       maps: "https://www.openstreetmap.org/search?query=Rio%20de%20Janeiro",
     },
   },
+  {
+    id: "istanbul",
+    name: "Istanbul",
+    subtitle: "Ferries on the Bosphorus",
+    timeZone: "Europe/Istanbul",
+    defaultWeather: "breeze",
+    accent: "#f0b681",
+    accentSoft: "rgba(240, 182, 129, 0.16)",
+    tag: "Breeze",
+    intro:
+      "A call to prayer drifts over the water, gulls turn above the ferry lights, and the old city keeps one eye open across the Bosphorus.",
+    guide: {
+      title: "Istanbul, after sunset",
+      places: [
+        ["Karaköy", "Ferry docks, fish sandwiches and a view across the water."],
+        ["Balat", "Coloured houses, steep lanes and a very good bakery."],
+        ["Çamlıca Hill", "The whole city and both continents, if the night is clear."],
+      ],
+      footer: "Take the ferry. The long way is the point.",
+      maps: "https://www.openstreetmap.org/search?query=Istanbul",
+    },
+  },
+  {
+    id: "cairo",
+    name: "Cairo",
+    subtitle: "Ramadan by the pyramids",
+    timeZone: "Africa/Cairo",
+    defaultWeather: "clear",
+    accent: "#f3cf82",
+    accentSoft: "rgba(243, 207, 130, 0.16)",
+    tag: "Clear",
+    intro:
+      "Lanterns string the rooftops and the pyramids hold their light long after the city has eaten. A warm dust settles over everything.",
+    guide: {
+      title: "Cairo, after iftar",
+      places: [
+        ["Zamalek", "Quiet streets, old villas and a café on the Nile."],
+        ["Khan el-Khalili", "Lanterns, mint tea and a maze that is the point."],
+        ["Giza plateau", "The pyramids at the edge of the city, best just after sunrise."],
+      ],
+      footer: "Everything is louder, warmer and later here.",
+      maps: "https://www.openstreetmap.org/search?query=Cairo",
+    },
+  },
+  {
+    id: "singapore",
+    name: "Singapore",
+    subtitle: "Rain over Marina Bay",
+    timeZone: "Asia/Singapore",
+    defaultWeather: "rain",
+    accent: "#7fe6dc",
+    accentSoft: "rgba(127, 230, 220, 0.16)",
+    tag: "Rain",
+    intro:
+      "The bay turns into a mirror and the towers wear the rain like neon. Somewhere above, the sky park glows through the cloud.",
+    guide: {
+      title: "Singapore, in the rain",
+      places: [
+        ["Marina Bay", "The boardwalk, the skyline and a late-night kaya toast."],
+        ["Tiong Bahru", "Low-rise art deco blocks, bookshops and coffee."],
+        ["Kampong Glam", "Mural lanes, fabric shops and the mosque at dusk."],
+      ],
+      footer: "The rain is warm. Keep walking.",
+      maps: "https://www.openstreetmap.org/search?query=Singapore",
+    },
+  },
+  {
+    id: "sydney",
+    name: "Sydney",
+    subtitle: "Sails on the harbour",
+    timeZone: "Australia/Sydney",
+    defaultWeather: "clear",
+    accent: "#8fc7ff",
+    accentSoft: "rgba(143, 199, 255, 0.16)",
+    tag: "Clear",
+    intro:
+      "The opera house glows at the end of the quay and the harbour bridge holds up a sky full of stars. A ferry cuts home through the dark water.",
+    guide: {
+      title: "Sydney, on the water",
+      places: [
+        ["Circular Quay", "Ferries, buskers and the best cheap view in the city."],
+        ["The Rocks", "Old pubs, sandstone lanes and the market on weekends."],
+        ["Watsons Bay", "A ferry ride, a cliff walk and fish and chips at the end."],
+      ],
+      footer: "Catch the last ferry. It is worth the walk.",
+      maps: "https://www.openstreetmap.org/search?query=Sydney",
+    },
+  },
+  {
+    id: "amsterdam",
+    name: "Amsterdam",
+    subtitle: "Lights on the canal",
+    timeZone: "Europe/Amsterdam",
+    defaultWeather: "fog",
+    accent: "#f1a45c",
+    accentSoft: "rgba(241, 164, 92, 0.16)",
+    tag: "Fog",
+    intro:
+      "Bicycles hiss past the canal houses and every window holds a small orange lamp. The water keeps the city upside down until morning.",
+    guide: {
+      title: "Amsterdam, late",
+      places: [
+        ["Jordaan", "Narrow streets, brown cafés and a canal at every corner."],
+        ["De Pijp", "The market, a bakery and a very slow second coffee."],
+        ["NDSM Wharf", "A ferry, a warehouse and whatever is on tonight."],
+      ],
+      footer: "Mind the bikes. Then mind them again.",
+      maps: "https://www.openstreetmap.org/search?query=Amsterdam",
+    },
+  },
+  {
+    id: "bangkok",
+    name: "Bangkok",
+    subtitle: "Long-tail boats at midnight",
+    timeZone: "Asia/Bangkok",
+    defaultWeather: "clear",
+    accent: "#ffc46b",
+    accentSoft: "rgba(255, 196, 107, 0.16)",
+    tag: "Clear",
+    intro:
+      "The temple glows gold across the river while the last long-tail boat cuts home. Street food smoke, motorbikes and a warm, wet sky.",
+    guide: {
+      title: "Bangkok, after dark",
+      places: [
+        ["Wat Arun", "The temple across the river, best seen from a rooftop."],
+        ["Yaowarat", "Chinatown after midnight: noodles, neon and smoke."],
+        ["Talad Noi", "Old shophouses, engine parts and a tiny coffee bar."],
+      ],
+      footer: "The city is still eating. Join it.",
+      maps: "https://www.openstreetmap.org/search?query=Bangkok",
+    },
+  },
+  {
+    id: "dubai",
+    name: "Dubai",
+    subtitle: "Fountains under the Burj",
+    timeZone: "Asia/Dubai",
+    defaultWeather: "clear",
+    accent: "#8fd6ff",
+    accentSoft: "rgba(143, 214, 255, 0.16)",
+    tag: "Clear",
+    intro:
+      "The tallest thing you have ever seen disappears into a warm haze. Below it, the fountains keep time and the desert waits just past the lights.",
+    guide: {
+      title: "Dubai, after the heat",
+      places: [
+        ["Dubai Fountain", "Every half hour, a short and very large spectacle."],
+        ["Al Fahidi", "Wind-tower lanes, a museum and a quiet courtyard."],
+        ["Jumeirah", "The beach at dusk, with the skyline turning on behind you."],
+      ],
+      footer: "Walk beside the water. It is cooler there.",
+      maps: "https://www.openstreetmap.org/search?query=Dubai",
+    },
+  },
+  {
+    id: "hong-kong",
+    name: "Hong Kong",
+    subtitle: "Harbour lights and rain",
+    timeZone: "Asia/Hong_Kong",
+    defaultWeather: "rain",
+    accent: "#ff8da1",
+    accentSoft: "rgba(255, 141, 161, 0.16)",
+    tag: "Rain",
+    intro:
+      "The harbour is a bowl of neon and the Peak disappears into cloud. A red-sailed junk crosses the ferry lanes while the rain keeps everyone close.",
+    guide: {
+      title: "Hong Kong, in the rain",
+      places: [
+        ["Tsim Sha Tsui", "The promenade, the skyline and the Star Ferry."],
+        ["Sheung Wan", "Dried seafood, coffee shops and steep old lanes."],
+        ["Victoria Peak", "Go up for the view; stay for the cloud coming in."],
+      ],
+      footer: "The Star Ferry is still the best commute.",
+      maps: "https://www.openstreetmap.org/search?query=Hong%20Kong",
+    },
+  },
 ];
 
 export const CITY_BY_ID = Object.fromEntries(CITIES.map((city) => [city.id, city]));
