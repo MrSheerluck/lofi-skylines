@@ -165,28 +165,11 @@ export function nextTrackInCategory(track) {
   return tracks[(index + 1) % tracks.length];
 }
 
-// A station should move between moods, not play a whole category in a row.
-export const RADIO_ORDER = Array.from({ length: 10 }, (_, index) =>
-  CATEGORIES.map((category) => tracksInCategory(category.id)[index]),
-).flat();
-
-export function nextTrackInCatalog(track) {
-  const index = RADIO_ORDER.findIndex((item) => item.id === track.id);
-  return RADIO_ORDER[(index + 1) % RADIO_ORDER.length];
-}
-
 export function upcomingTracks(track, count = 4) {
   const tracks = categoryTrack(track);
   const index = tracks.findIndex((item) => item.id === track.id);
   return Array.from({ length: Math.min(count, tracks.length - 1) }, (_, offset) => {
     return tracks[(index + offset + 1) % tracks.length];
-  });
-}
-
-export function upcomingCatalogTracks(track, count = 4) {
-  const index = RADIO_ORDER.findIndex((item) => item.id === track.id);
-  return Array.from({ length: Math.min(count, RADIO_ORDER.length - 1) }, (_, offset) => {
-    return RADIO_ORDER[(index + offset + 1) % RADIO_ORDER.length];
   });
 }
 

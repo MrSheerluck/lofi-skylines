@@ -44,6 +44,21 @@ const SKY_DEFS = {
     glow: "#d8e7f0",
     glowY: 0.8,
   },
+  london: {
+    colors: ["#050b13", "#0a141f", "#101f2c", "#1b2f3d", "#344b56", "#697678", "#a89c8c"],
+    glow: "#d8c5a5",
+    glowY: 0.84,
+  },
+  seoul: {
+    colors: ["#08071a", "#100d28", "#1a1238", "#2b1748", "#4c225d", "#8d3c68", "#d06a87"],
+    glow: "#ff9ab5",
+    glowY: 0.8,
+  },
+  rio: {
+    colors: ["#04101b", "#071c2b", "#0c2b3b", "#154352", "#2b6061", "#6b7f6d", "#c39f77"],
+    glow: "#ffc48d",
+    glowY: 0.84,
+  },
 };
 
 const skyCache = new Map();
@@ -1344,8 +1359,643 @@ function drawNewYork(ctx, t, weather, reducedMotion) {
   drawBrooklynBridge(ctx, reducedMotion ? 0 : t, reducedMotion);
 }
 
+function drawLondonEye(ctx, cx, cy, r, t) {
+  const ring = "rgba(190, 222, 247, .8)";
+  const bright = "#e6f5ff";
+  drawGlow(ctx, cx, cy, r + 16, r + 14, "#9ad9ff", 0.08, 21);
+
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  line(ctx, cx, cy, cx - 24, 216, "#6d8da2");
+  line(ctx, cx, cy, cx + 24, 216, "#6d8da2");
+  line(ctx, cx, cy, cx, 216, "#6d8da2");
+
+  for (let index = 0; index < 140; index += 1) {
+    const angle = (index / 140) * Math.PI * 2;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    ctx.globalAlpha = 0.55 + hash01(index * 3.7) * 0.4;
+    ctx.fillStyle = ring;
+    ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+  }
+
+  ctx.globalAlpha = 0.14;
+  for (let index = 0; index < 18; index += 1) {
+    const angle = (index / 18) * Math.PI * 2;
+    line(ctx, cx, cy, cx + Math.cos(angle) * r, cy + Math.sin(angle) * r, bright);
+  }
+
+  ctx.globalAlpha = 0.32;
+  for (let index = 0; index < 80; index += 1) {
+    const angle = (index / 80) * Math.PI * 2;
+    ctx.fillStyle = "#bfe5ff";
+    ctx.fillRect(
+      Math.round(cx + Math.cos(angle) * (r - 3)),
+      Math.round(cy + Math.sin(angle) * (r - 3)),
+      1,
+      1,
+    );
+  }
+
+  for (let index = 0; index < 18; index += 1) {
+    const angle = t * 0.045 + (index / 18) * Math.PI * 2;
+    const x = cx + Math.cos(angle) * (r + 1);
+    const y = cy + Math.sin(angle) * (r + 1);
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = index % 3 === 0 ? "#ffdc9a" : "#d8f1ff";
+    ctx.fillRect(Math.round(x) - 1, Math.round(y), 3, 2);
+  }
+
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = "#e8f8ff";
+  ctx.fillRect(cx - 2, cy - 2, 5, 5);
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = "#bfe9ff";
+  ctx.fillRect(cx - 9, cy - 9, 19, 19);
+  ctx.restore();
+}
+
+function drawBigBen(ctx, cx, baseY, t) {
+  const stone = "#2a2e39";
+  const stoneLight = "#424957";
+  const gold = "#e3b76f";
+  const pale = "#f8e9bd";
+
+  // Parliament silhouette.
+  ctx.fillStyle = "#1a202b";
+  ctx.fillRect(cx - 104, baseY - 42, 94, 42);
+  ctx.fillStyle = "#202633";
+  for (let x = cx - 104; x < cx - 14; x += 12) {
+    ctx.fillRect(x, baseY - 48, 5, 8);
+    ctx.fillRect(x + 1, baseY - 52, 3, 4);
+  }
+  ctx.fillStyle = "#343b49";
+  ctx.fillRect(cx - 104, baseY - 44, 94, 2);
+  for (let x = cx - 98; x < cx - 18; x += 9) {
+    ctx.globalAlpha = 0.5 + hash01(x * 1.7) * 0.4;
+    ctx.fillStyle = hash01(x * 3.3) > 0.45 ? "#e4b572" : "#8aa4b6";
+    ctx.fillRect(x, baseY - 35, 3, 7);
+    ctx.globalAlpha = 1;
+  }
+
+  // Elizabeth Tower.
+  const top = baseY - 118;
+  ctx.fillStyle = stone;
+  ctx.fillRect(cx - 11, top, 22, 118);
+  ctx.fillStyle = stoneLight;
+  ctx.fillRect(cx - 11, top, 2, 118);
+  ctx.fillRect(cx + 9, top, 2, 118);
+  ctx.fillRect(cx - 8, baseY - 28, 16, 2);
+
+  // Clock face.
+  const clockY = baseY - 98;
+  ctx.fillStyle = gold;
+  ctx.fillRect(cx - 8, clockY - 1, 16, 15);
+  ctx.fillStyle = pale;
+  ctx.fillRect(cx - 6, clockY + 1, 12, 11);
+  ctx.fillStyle = "#3e3527";
+  ctx.fillRect(cx - 1, clockY + 3, 1, 5);
+  ctx.fillRect(cx + 1, clockY + 6, 4, 1);
+  ctx.fillStyle = gold;
+  ctx.fillRect(cx - 1, clockY + 7, 2, 2);
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = "#ffd791";
+  ctx.fillRect(cx - 13, clockY - 6, 26, 25);
+  ctx.globalAlpha = 1;
+
+  // Roof and spire.
+  for (let index = 0; index < 12; index += 1) {
+    const width = Math.max(2, 22 - index * 1.7);
+    ctx.fillStyle = index % 3 === 0 ? "#4b5260" : "#343a46";
+    ctx.fillRect(Math.round(cx - width / 2), top - index, Math.round(width), 1);
+  }
+  ctx.fillStyle = gold;
+  ctx.fillRect(cx - 1, top - 20, 2, 10);
+  ctx.fillStyle = "#ffe7a8";
+  if (Math.sin(t * 2.1) > 0.35) ctx.fillRect(cx - 1, top - 21, 2, 1);
+
+  // Windows and warm faces.
+  for (let index = 0; index < 3; index += 1) {
+    ctx.fillStyle = "#ffdc9a";
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(cx - 6 + index * 5, clockY + 20, 3, 10);
+    ctx.globalAlpha = 0.28;
+    ctx.fillRect(cx - 5 + index * 5, baseY - 36, 2, 6);
+    ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = "#d7a95f";
+  ctx.fillRect(cx - 12, baseY - 4, 24, 2);
+}
+
+function drawLondon(ctx, t, weather, reducedMotion) {
+  ctx.drawImage(getSky("london"), 0, 0);
+  drawStars(ctx, reducedMotion ? 0 : t, { seed: 117, count: 23, maxY: 125, color: "#e9eff5" });
+  drawCloudBand(ctx, t, { seed: 44, y: 30, color: "#2b3b48", alpha: 0.7, height: 5, spread: 24 });
+  drawCloudBand(ctx, t, { seed: 91, y: 78, color: "#40515e", alpha: 0.52, height: 4, spread: 18 });
+  drawMoon(ctx, 394, 52, 9, { color: "#e9e2d1", shade: "#bfc0bb", halo: false });
+
+  drawSkyline(ctx, {
+    baseY: 202,
+    color: "#111a25",
+    roofColor: "#0c141c",
+    seed: 57,
+    minH: 16,
+    maxH: 52,
+    minW: 10,
+    maxW: 24,
+    gap: 3,
+    windows: true,
+    windowColors: ["#ac9066", "#6e8797", "#d6b47b"],
+    windowDensity: 0.09,
+    t: reducedMotion ? 0 : t,
+    dim: 0.55,
+  });
+
+  // The Shard and a few distant towers.
+  ctx.fillStyle = "#171f2b";
+  ctx.beginPath();
+  ctx.moveTo(50, 204);
+  ctx.lineTo(60, 66);
+  ctx.lineTo(68, 204);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 0.3;
+  for (let y = 130; y < 200; y += 7) ctx.fillRect(59, y, 2, 2);
+  ctx.globalAlpha = 1;
+
+  drawLondonEye(ctx, 101, 150, 38, reducedMotion ? 0 : t);
+  drawBigBen(ctx, 274, 204, reducedMotion ? 0 : t);
+
+  drawSkyline(ctx, {
+    baseY: 205,
+    color: "#1d2430",
+    roofColor: "#151b24",
+    seed: 73,
+    minH: 30,
+    maxH: 72,
+    minW: 14,
+    maxW: 28,
+    gap: 2,
+    windows: true,
+    windowColors: ["#e4b572", "#8fa7b7"],
+    windowDensity: 0.14,
+    t: reducedMotion ? 0 : t,
+    minX: 300,
+    maxX: W + 8,
+    antenna: 0.1,
+  });
+
+  // Embankment and river.
+  ctx.fillStyle = "#17202a";
+  ctx.fillRect(0, 201, W, 17);
+  ctx.fillStyle = "#343b45";
+  ctx.fillRect(0, 216, W, 2);
+  ctx.fillStyle = "#08111a";
+  ctx.fillRect(0, 218, W, 52);
+
+  drawWater(ctx, {
+    y: 218,
+    t: reducedMotion ? 0 : t,
+    topColor: "#0a1721",
+    bottomColor: "#050b12",
+    waveColor: "#294454",
+    reflections: [
+      { x: 274, width: 34, color: "#eec078", alpha: 0.46 },
+      { x: 101, width: 20, color: "#b9e1ff", alpha: 0.3 },
+      { x: 402, width: 12, color: "#f2c37a", alpha: 0.25 },
+    ],
+    fog: 0.045,
+  });
+
+  drawGlow(ctx, 274, 219, 32, 8, "#eec078", 0.15, 17);
+  drawGlow(ctx, 30, 205, 18, 6, "#ffd28a", 0.12, 19);
+  drawGlow(ctx, 163, 205, 16, 5, "#ffd28a", 0.12, 23);
+
+  drawStreetLamp(ctx, 30, 207, 31, true, t);
+  drawStreetLamp(ctx, 163, 207, 29, true, t);
+  drawStreetLamp(ctx, 422, 207, 30, true, t);
+
+  // Red bus and a black cab on the embankment.
+  const busX = mod(reducedMotion ? 40 : t * 7 + 140, W + 100) - 40;
+  ctx.fillStyle = "#ad2d37";
+  ctx.fillRect(busX, 192, 28, 12);
+  ctx.fillStyle = "#d95056";
+  ctx.fillRect(busX, 192, 28, 2);
+  ctx.fillStyle = "#f4d29a";
+  for (let index = 0; index < 5; index += 1) {
+    ctx.fillRect(busX + 4 + index * 5, 196, 3, 4);
+  }
+  ctx.fillStyle = "#10131a";
+  ctx.fillRect(busX + 4, 203, 4, 3);
+  ctx.fillRect(busX + 20, 203, 4, 3);
+  drawCar(ctx, mod(reducedMotion ? 200 : t * 11 + 280, W + 80) - 40, 195, "#181b23", 1, false, t);
+
+  drawPerson(ctx, 188, 195, { coat: "#1c2028", umbrella: "#425465", walk: 0 });
+  drawPerson(ctx, 198, 195, { coat: "#25222a", umbrella: "#8c6f5d", walk: 1, scale: 0.92 });
+  drawPerson(ctx, 387, 195, { coat: "#1e242c", umbrella: "#576c7a", walk: 0 });
+
+  // A small river boat.
+  const boatX = mod(reducedMotion ? 300 : t * 2.8 + 30, W + 120) - 50;
+  ctx.fillStyle = "#0f1820";
+  ctx.fillRect(boatX, 233, 48, 7);
+  ctx.fillStyle = "#1d2c36";
+  ctx.fillRect(boatX + 4, 229, 38, 5);
+  ctx.fillStyle = "#ffd28a";
+  for (let index = 0; index < 6; index += 1) ctx.fillRect(boatX + 7 + index * 6, 230, 3, 2);
+
+  drawFog(ctx, reducedMotion ? 0 : t, { y: 188, alpha: 0.055, height: 22, color: "#d4dbe0" });
+}
+
+function drawNamsanTower(ctx, cx, baseY, topY, t) {
+  const pale = "#dce5e7";
+  const light = "#9fdbdc";
+  drawGlow(ctx, cx, topY + 42, 26, 54, "#ff9fb8", 0.06, 31);
+
+  // Hill.
+  ctx.fillStyle = "#0c1718";
+  ctx.beginPath();
+  ctx.moveTo(cx - 132, 208);
+  ctx.lineTo(cx - 73, 184);
+  ctx.lineTo(cx - 22, 158);
+  ctx.lineTo(cx + 22, 166);
+  ctx.lineTo(cx + 82, 190);
+  ctx.lineTo(cx + 134, 208);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = "#1f3b2d";
+  for (let index = 0; index < 28; index += 1) {
+    const x = cx - 100 + hash01(index * 7.1) * 200;
+    const y = 174 + hash01(index * 3.7) * 30;
+    ctx.fillRect(Math.round(x), Math.round(y), 2, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // Tower mast and observation deck.
+  ctx.fillStyle = "#242329";
+  ctx.fillRect(cx - 2, topY + 34, 4, baseY - topY - 34);
+  ctx.fillStyle = "#34343b";
+  ctx.fillRect(cx - 7, topY + 28, 14, 8);
+  ctx.fillStyle = pale;
+  ctx.fillRect(cx - 8, topY + 22, 16, 3);
+  ctx.fillStyle = "#e6a3b2";
+  ctx.fillRect(cx - 2, topY + 10, 4, 12);
+  ctx.fillStyle = light;
+  ctx.globalAlpha = 0.8;
+  ctx.fillRect(cx - 5, topY + 25, 10, 2);
+  ctx.fillRect(cx - 1, topY + 13, 2, 8);
+  ctx.globalAlpha = 1;
+  if (Math.sin(t * 2.3) > 0.25) {
+    ctx.fillStyle = "#ff5964";
+    ctx.fillRect(cx - 1, topY + 6, 2, 2);
+  }
+  ctx.fillStyle = pale;
+  ctx.fillRect(cx - 1, topY + 2, 2, 5);
+
+  // Tiny cable car line disappearing into the hill.
+  ctx.globalAlpha = 0.28;
+  line(ctx, cx + 5, topY + 30, cx + 80, 191, "#9dc3cb");
+  ctx.globalAlpha = 1;
+}
+
+function drawHanok(ctx, x, baseY, width) {
+  ctx.fillStyle = "#1d1719";
+  ctx.fillRect(x, baseY - 25, width, 25);
+  ctx.fillStyle = "#2c2323";
+  ctx.fillRect(x + 4, baseY - 21, width - 8, 3);
+  ctx.fillStyle = "#ffd08a";
+  ctx.globalAlpha = 0.62;
+  for (let index = 0; index < 3; index += 1) {
+    ctx.fillRect(x + 8 + index * 18, baseY - 18, 11, 12);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#17141a";
+  for (let index = 0; index < 4; index += 1) {
+    ctx.fillRect(x - 5 + index * 2, baseY - 30 - index, width + 10 - index * 4, 2);
+  }
+  ctx.fillStyle = "#252028";
+  ctx.fillRect(x - 7, baseY - 33, 7, 2);
+  ctx.fillRect(x + width, baseY - 33, 7, 2);
+  ctx.fillStyle = "#c45c55";
+  ctx.fillRect(x + 5, baseY - 28, 4, 4);
+  ctx.fillRect(x + width - 9, baseY - 28, 4, 4);
+}
+
+function drawSeoul(ctx, t, weather, reducedMotion) {
+  ctx.drawImage(getSky("seoul"), 0, 0);
+  drawStars(ctx, reducedMotion ? 0 : t, { seed: 151, count: 64, maxY: 150, color: "#ffe3ef" });
+  drawCloudBand(ctx, t, { seed: 39, y: 40, color: "#3a234f", alpha: 0.55, height: 4, spread: 24 });
+  drawMoon(ctx, 392, 48, 13, { color: "#f8e8cf", shade: "#d7c0a8" });
+
+  drawSkyline(ctx, {
+    baseY: 204,
+    color: "#131022",
+    roofColor: "#0d0a18",
+    seed: 81,
+    minH: 20,
+    maxH: 60,
+    minW: 10,
+    maxW: 24,
+    gap: 2,
+    windows: true,
+    windowColors: ["#8f6b7f", "#5d4a71", "#c2859d"],
+    windowDensity: 0.09,
+    t: reducedMotion ? 0 : t,
+    dim: 0.55,
+  });
+
+  drawNamsanTower(ctx, 236, 198, 58, reducedMotion ? 0 : t);
+
+  drawSkyline(ctx, {
+    baseY: 210,
+    color: "#1b1430",
+    roofColor: "#120d21",
+    seed: 52,
+    minH: 42,
+    maxH: 102,
+    minW: 15,
+    maxW: 32,
+    gap: 3,
+    windows: true,
+    windowColors: ["#ffcf8a", "#9fe8ef", "#ff9fc4"],
+    windowDensity: 0.22,
+    t: reducedMotion ? 0 : t,
+    minX: -8,
+    maxX: 178,
+    antenna: 0.2,
+  });
+  drawSkyline(ctx, {
+    baseY: 210,
+    color: "#1b1430",
+    roofColor: "#120d21",
+    seed: 68,
+    minH: 38,
+    maxH: 96,
+    minW: 15,
+    maxW: 30,
+    gap: 3,
+    windows: true,
+    windowColors: ["#ffcf8a", "#9fe8ef", "#ff9fc4"],
+    windowDensity: 0.22,
+    t: reducedMotion ? 0 : t,
+    minX: 300,
+    maxX: W + 8,
+    antenna: 0.18,
+  });
+
+  drawNeonSign(ctx, { x: 30, y: 145, w: 42, h: 9, text: "SEOUL", color: "#ff9fc4", bg: "#160e20", t });
+  drawNeonSign(ctx, { x: 335, y: 158, w: 35, h: 9, text: "NIGHT", color: "#8fe8ef", bg: "#101322", t });
+  drawVerticalNeon(ctx, 122, 127, 52, "#62e0e8", t);
+  drawVerticalNeon(ctx, 345, 105, 48, "#ff9fc4", t);
+
+  // Street level.
+  ctx.fillStyle = "#16111e";
+  ctx.fillRect(0, 210, W, 40);
+  ctx.fillStyle = "#271c30";
+  ctx.fillRect(0, 210, W, 2);
+  ctx.fillStyle = "#0c0911";
+  ctx.fillRect(0, 250, W, 20);
+  for (let x = 196; x < 292; x += 13) {
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = "#f0dcc2";
+    ctx.fillRect(x, 214, 5, 21);
+    ctx.globalAlpha = 1;
+  }
+  drawStreetReflections(
+    ctx,
+    [
+      { x: 236, width: 24, color: "#ff9fc4", alpha: 0.3 },
+      { x: 126, width: 8, color: "#62e0e8", alpha: 0.34 },
+      { x: 352, width: 16, color: "#ffcf8a", alpha: 0.28 },
+      { x: 44, width: 12, color: "#ff9fc4", alpha: 0.24 },
+    ],
+    reducedMotion ? 0 : t,
+    211,
+    249,
+  );
+
+  drawHanok(ctx, 0, 235, 68);
+  drawHanok(ctx, 410, 235, 70);
+
+  drawStreetLamp(ctx, 100, 214, 36, true, t);
+  drawStreetLamp(ctx, 300, 214, 34, true, t);
+  drawStreetLamp(ctx, 388, 214, 36, true, t);
+
+  drawPerson(ctx, 176, 204, { coat: "#251a2b", umbrella: null, walk: 0 });
+  drawPerson(ctx, 188, 204, { coat: "#30202e", umbrella: null, walk: 1, scale: 0.92 });
+  drawPerson(ctx, 320, 204, { coat: "#1c1b2b", umbrella: null, walk: 0 });
+
+  const car1 = mod(reducedMotion ? 0 : t * 22 + 70, W + 90) - 40;
+  const car2 = W - mod(reducedMotion ? 0 : t * 16 + 180, W + 90) + 30;
+  drawCar(ctx, car1, 220, "#4a2c4d", 1, true, t);
+  drawCar(ctx, car2, 236, "#24495a", -1, true, t);
+
+  // Lantern glow near the hanoks.
+  drawGlow(ctx, 20, 214, 20, 7, "#ffcf8a", 0.18, 37);
+  drawGlow(ctx, 452, 214, 18, 6, "#ffcf8a", 0.16, 41);
+}
+
+function drawPalm(ctx, x, baseY, height, seed) {
+  const random = mulberry32(seed);
+  ctx.save();
+  ctx.strokeStyle = "#111711";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, baseY);
+  ctx.quadraticCurveTo(x - 8, baseY - height * 0.55, x + 3, baseY - height);
+  ctx.stroke();
+  ctx.strokeStyle = "#1f3324";
+  ctx.lineWidth = 1;
+  for (let index = 0; index < 8; index += 1) {
+    const angle = -Math.PI * 0.9 + (index / 7) * Math.PI * 1.8;
+    const length = 12 + random() * 22;
+    const tipX = x + 3 + Math.cos(angle) * length;
+    const tipY = baseY - height + Math.sin(angle) * length * 0.55 + length * 0.35;
+    ctx.beginPath();
+    ctx.moveTo(x + 3, baseY - height);
+    ctx.quadraticCurveTo(
+      x + 3 + Math.cos(angle) * length * 0.55,
+      baseY - height + Math.sin(angle) * length * 0.2 - 4,
+      tipX,
+      tipY,
+    );
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawChrist(ctx, cx, feetY, t) {
+  const stone = "#e7e1d2";
+  const light = "#fff4d9";
+  drawGlow(ctx, cx, feetY - 20, 42, 38, "#ffe2a4", 0.11, 51);
+
+  ctx.fillStyle = "#b9b3a7";
+  ctx.fillRect(cx - 5, feetY - 5, 10, 5);
+  ctx.fillStyle = stone;
+  ctx.fillRect(cx - 3, feetY - 34, 7, 30);
+  ctx.fillStyle = light;
+  ctx.fillRect(cx - 2, feetY - 34, 3, 28);
+  ctx.fillStyle = stone;
+  ctx.fillRect(cx - 2, feetY - 40, 5, 5);
+  ctx.fillRect(cx - 19, feetY - 31, 38, 2);
+  ctx.fillRect(cx - 20, feetY - 29, 4, 2);
+  ctx.fillRect(cx + 17, feetY - 29, 4, 2);
+  ctx.fillStyle = light;
+  ctx.fillRect(cx - 18, feetY - 31, 36, 1);
+  ctx.fillStyle = "#cfc9bc";
+  ctx.fillRect(cx - 2, feetY - 24, 1, 17);
+  ctx.fillRect(cx + 2, feetY - 22, 1, 15);
+
+  if (!t) return;
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = "#ffe4aa";
+  ctx.fillRect(cx - 28, feetY - 14, 56, 10);
+  ctx.globalAlpha = 1;
+}
+
+function drawSugarloaf(ctx, cx, baseY, height) {
+  const rows = baseY - height;
+  for (let y = rows; y <= baseY; y += 1) {
+    const p = (y - rows) / height;
+    const half = Math.round(Math.sqrt(p) * 38 + Math.sin(p * Math.PI) * 8);
+    ctx.fillStyle = p > 0.7 ? "#0d1c22" : "#10252a";
+    ctx.fillRect(cx - half, y, half * 2, 1);
+  }
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = "#33524e";
+  for (let index = 0; index < 26; index += 1) {
+    const x = cx - 32 + hash01(index * 3.3) * 64;
+    const y = rows + 12 + hash01(index * 7.1) * (height - 20);
+    ctx.fillRect(Math.round(x), Math.round(y), 2, 1);
+  }
+  ctx.globalAlpha = 1;
+
+  // Cable car line.
+  ctx.globalAlpha = 0.32;
+  line(ctx, cx - 60, baseY - 10, cx, rows + 10, "#d4e2dc");
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#e7efe9";
+  ctx.fillRect(cx - 28, Math.round(rows + height * 0.35), 4, 3);
+}
+
+function drawRio(ctx, t, weather, reducedMotion) {
+  ctx.drawImage(getSky("rio"), 0, 0);
+  drawStars(ctx, reducedMotion ? 0 : t, { seed: 188, count: 72, maxY: 150, color: "#ffe8c4" });
+  drawCloudBand(ctx, t, { seed: 71, y: 38, color: "#24485a", alpha: 0.45, height: 4, spread: 24 });
+  drawMoon(ctx, 392, 48, 12, { color: "#f6e7c9", shade: "#d4bfa2" });
+
+  drawSkyline(ctx, {
+    baseY: 202,
+    color: "#0b1c24",
+    roofColor: "#07151b",
+    seed: 97,
+    minH: 18,
+    maxH: 52,
+    minW: 10,
+    maxW: 25,
+    gap: 3,
+    windows: true,
+    windowColors: ["#d8b878", "#7fa6a6", "#f0cd8a"],
+    windowDensity: 0.15,
+    t: reducedMotion ? 0 : t,
+    minX: 120,
+    maxX: 380,
+    dim: 0.7,
+  });
+
+  // Corcovado mountain.
+  ctx.fillStyle = "#0d2026";
+  ctx.beginPath();
+  ctx.moveTo(105, 207);
+  ctx.lineTo(164, 160);
+  ctx.lineTo(214, 132);
+  ctx.lineTo(250, 124);
+  ctx.lineTo(292, 148);
+  ctx.lineTo(346, 178);
+  ctx.lineTo(390, 207);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#16332f";
+  ctx.globalAlpha = 0.55;
+  for (let index = 0; index < 36; index += 1) {
+    const x = 130 + hash01(index * 5.3) * 230;
+    const y = 140 + hash01(index * 9.7) * 64;
+    ctx.fillRect(Math.round(x), Math.round(y), 2, 3);
+  }
+  ctx.globalAlpha = 1;
+
+  drawChrist(ctx, 250, 124, reducedMotion ? 0 : t);
+  drawSugarloaf(ctx, 414, 208, 92);
+
+  // Shoreline city lights.
+  drawSkyline(ctx, {
+    baseY: 207,
+    color: "#12252d",
+    roofColor: "#0b191f",
+    seed: 39,
+    minH: 8,
+    maxH: 28,
+    minW: 6,
+    maxW: 14,
+    gap: 1,
+    windows: true,
+    windowColors: ["#ffd28a", "#e8b16d", "#a9d4cc"],
+    windowDensity: 0.32,
+    t: reducedMotion ? 0 : t,
+    minX: -6,
+    maxX: W + 6,
+    antenna: 0.05,
+    dim: 0.8,
+  });
+
+  drawWater(ctx, {
+    y: 209,
+    t: reducedMotion ? 0 : t,
+    topColor: "#0a2632",
+    bottomColor: "#06141d",
+    waveColor: "#2f5e63",
+    reflections: [
+      { x: 250, width: 34, color: "#ffe0a2", alpha: 0.38 },
+      { x: 392, width: 26, color: "#f6e7c9", alpha: 0.3 },
+      { x: 150, width: 20, color: "#d8b878", alpha: 0.22 },
+      { x: 430, width: 14, color: "#cf9f6c", alpha: 0.2 },
+    ],
+    fog: 0.03,
+  });
+
+  // A bright shoreline and a thin strip of sand.
+  ctx.fillStyle = "#3b3029";
+  ctx.fillRect(0, 253, W, 17);
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = "#d9bb8c";
+  for (let x = 0; x < W; x += 5) {
+    if (hash01(x * 2.1) > 0.35) ctx.fillRect(x, 253 + Math.round(hash01(x) * 3), 3, 1);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#617f7a";
+  ctx.fillRect(0, 251, W, 1);
+
+  // Boats and shore lights.
+  for (let index = 0; index < 4; index += 1) {
+    const boatX = mod(reducedMotion ? index * 130 : t * (2 + index * 0.4) + index * 130 + 40, W + 80) - 40;
+    ctx.fillStyle = "#101c22";
+    ctx.fillRect(Math.round(boatX), 225 + index * 5, 13, 3);
+    ctx.fillStyle = "#ffd28a";
+    ctx.fillRect(Math.round(boatX) + 3, 224 + index * 5, 2, 1);
+  }
+
+  drawPalm(ctx, 22, 270, 64, 12);
+  drawPalm(ctx, 454, 270, 58, 19);
+  drawPalm(ctx, 66, 270, 42, 25);
+
+  drawGlow(ctx, 250, 208, 36, 8, "#ffe0a2", 0.13, 61);
+  drawGlow(ctx, 414, 208, 28, 7, "#ffd28a", 0.1, 67);
+
+  drawFog(ctx, reducedMotion ? 0 : t, { y: 197, alpha: 0.025, height: 18, color: "#bfe0d8" });
+}
+
 function drawLightning(ctx, t) {
-  const phase = mod(t + 4.2, 15);
+  const phase = mod(t + 4.2, 12);
   if (phase > 0.12 && phase < 0.2) return;
   if (phase >= 0.36 && phase < 0.4) return;
   if (phase > 0.44) return;
@@ -1355,7 +2005,7 @@ function drawLightning(ctx, t) {
   ctx.fillStyle = "#dce9ff";
   ctx.fillRect(0, 0, W, H);
   if (phase < 0.12) {
-    const seed = Math.floor((t + 4.2) / 15);
+    const seed = Math.floor((t + 4.2) / 12);
     const random = mulberry32(seed * 41 + 7);
     let x = 50 + Math.round(random() * 380);
     let y = 30 + Math.round(random() * 18);
@@ -1417,6 +2067,12 @@ export function drawScene(ctx, cityId, t, weather, reducedMotion = false) {
     drawParis(ctx, t, weather, reducedMotion);
   } else if (cityId === "new-york") {
     drawNewYork(ctx, t, weather, reducedMotion);
+  } else if (cityId === "london") {
+    drawLondon(ctx, t, weather, reducedMotion);
+  } else if (cityId === "seoul") {
+    drawSeoul(ctx, t, weather, reducedMotion);
+  } else if (cityId === "rio") {
+    drawRio(ctx, t, weather, reducedMotion);
   } else {
     drawTokyo(ctx, t, weather, reducedMotion);
   }

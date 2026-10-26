@@ -504,6 +504,7 @@ export class LofiEngine {
 
   scheduleThunder(time = this.ctx.currentTime + 0.3) {
     if (!this.ctx || (this.weather !== "rain" && this.weather !== "storm")) return;
+    const strong = this.weather === "storm";
     const ctx = this.ctx;
     const source = ctx.createBufferSource();
     source.buffer = this.noiseBuffer(3.2, true);
@@ -513,7 +514,7 @@ export class LofiEngine {
     filter.Q.value = 0.7;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.linearRampToValueAtTime(0.085, time + 0.45);
+    gain.gain.linearRampToValueAtTime(strong ? 0.12 : 0.085, time + 0.45);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + 3.2);
     source.connect(filter);
     filter.connect(gain);
@@ -527,12 +528,31 @@ export class LofiEngine {
     rumble.frequency.exponentialRampToValueAtTime(34, time + 2.2);
     const rumbleGain = ctx.createGain();
     rumbleGain.gain.setValueAtTime(0.0001, time);
-    rumbleGain.gain.linearRampToValueAtTime(0.03, time + 0.5);
+    rumbleGain.gain.linearRampToValueAtTime(strong ? 0.042 : 0.03, time + 0.5);
     rumbleGain.gain.exponentialRampToValueAtTime(0.0001, time + 2.6);
     rumble.connect(rumbleGain);
     rumbleGain.connect(this.ambienceBus);
     rumble.start(time);
     rumble.stop(time + 2.7);
+
+    if (strong) {
+      // A short crack on top of the low roll.
+      const crack = ctx.createBufferSource();
+      crack.buffer = this.noiseBuffer(0.35);
+      const crackFilter = ctx.createBiquadFilter();
+      crackFilter.type = "bandpass";
+      crackFilter.frequency.value = 1100;
+      crackFilter.Q.value = 0.5;
+      const crackGain = ctx.createGain();
+      crackGain.gain.setValueAtTime(0.0001, time);
+      crackGain.gain.linearRampToValueAtTime(0.055, time + 0.012);
+      crackGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.32);
+      crack.connect(crackFilter);
+      crackFilter.connect(crackGain);
+      crackGain.connect(this.ambienceBus);
+      crack.start(time);
+      crack.stop(time + 0.4);
+    }
   }
 
   startVinyl() {
@@ -1169,6 +1189,7 @@ export class LofiEngine {
       if (weather === "rain" || weather === "storm") {
         this.nextThunderAt =
           now + (weather === "storm" ? 2 + Math.random() * 5 : 5 + Math.random() * 9);
+        if (weather === "storm" && this.playing) this.scheduleThunder(now + 0.35);
       }
       if (weather === "clear") this.nextCricketAt = now + 1.2 + Math.random() * 2.4;
     }

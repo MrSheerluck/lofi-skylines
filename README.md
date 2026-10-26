@@ -8,17 +8,17 @@ A small, free, open-source tribute to [Lofi Cities](https://loficities.com).
 **Buy me a coffee:** <https://buymeacoffee.com/mrsheerlucx>
 **GitHub Sponsors:** <https://github.com/sponsors/MrSheerluck>
 
-Three hand-built scenes — Tokyo in neon rain, Paris at blue hour, and the
-Brooklyn Bridge in snow — each drawn pixel by pixel on a 480 × 270 canvas.
-Every note is synthesized with the Web Audio API. No samples, no streams, no
-account, no ads.
+Six hand-built scenes — Tokyo in neon rain, Paris at blue hour, the Brooklyn
+Bridge in snow, London in fog, Seoul below Namsan, and Rio after dark — each
+drawn pixel by pixel on a 480 × 270 canvas. Every note is synthesized with the
+Web Audio API. No samples, no streams, no account, no ads.
 
 ![Lofi Skylines](public/assets/og.png)
 
 ## What's inside
 
-- **Three animated pixel cities** with rain, snow, clouds, traffic, trains,
-  pedestrians, birds, blinking signs, reflections, and falling petals.
+- **Six animated pixel cities** with rain, snow, fog, clouds, traffic, trains,
+  pedestrians, birds, blinking signs, reflections, and falling leaves.
 - **A 30-track library in three moods:** ten lo-fi tracks, ten deep-focus
   tracks, and ten focused-EDM tracks. Every track has its own tempo, key
   transposition, chord progression, melody density, and drum recipe.
@@ -27,14 +27,15 @@ account, no ads.
   scheduled live with the Web Audio API.
 - **A real playlist:** Next plays the next track immediately, auto-advance
   keeps the current mood, and the library lets you jump to any of the 30.
-- **Radio mode:** tune in and the station starts playing, mixing all three
-  moods on a shared clock. The chip shows On air while it is running.
 - **Seven weather sound beds:** rain, storm, snow, breeze, autumn, fog and a
-  clear night. Rain and storm bring thunder, snow brings wind and hush, autumn
-  rustles, fog muffles the city, and clear nights get a low hum and crickets.
-  Weather changes crossfade the ambience and add a short transition.
-- **Weather picker** with live scene and sound changes, plus `W` to cycle.
-- **City picker** with live previews and local times.
+  clear night. Rain and storm bring thunder (storms get frequent cracks and
+  rolls), snow brings wind and hush, autumn rustles, fog muffles the city, and
+  clear nights get a low hum and crickets. Weather changes crossfade the
+  ambience and add a short transition.
+- **A cycling weather chip** — click it or press `W` to step through all seven
+  weathers with their scenes and sounds.
+- **A cycling city chip** — click it to move through all six cities one by one,
+  or open the City picker for previews and local times.
 - **City tour**, a 25/50-minute focus timer, keyboard shortcuts, volume
   controls, shareable city links, and a downloadable 1920 × 1080 postcard.
 - **No build step, no tracking, no third-party requests.** The site is plain
@@ -137,8 +138,7 @@ music library — follows automatically.
 | `F` | Fullscreen |
 | `M` | Mute / unmute |
 | `A` | Weather &amp; city sounds on / off |
-| `O` | Radio on / off |
-| `1` `2` `3` | Jump to a city |
+| `1`–`6` | Jump to a city |
 | `←` `→` | Previous / next city |
 | `?` | Shortcuts |
 | `Esc` | Close a panel |
