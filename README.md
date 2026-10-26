@@ -10,8 +10,9 @@ A small, free, open-source tribute to [Lofi Cities](https://loficities.com).
 
 Fourteen hand-built scenes — Tokyo, Paris, New York, London, Seoul, Rio,
 Istanbul, Cairo, Singapore, Sydney, Amsterdam, Bangkok, Dubai and Hong Kong —
-each drawn pixel by pixel on a 480 × 270 canvas. Every note is synthesized with
-the Web Audio API. No samples, no streams, no account, no ads.
+each drawn pixel by pixel on a 480 × 270 canvas. The music is synthesized with
+the Web Audio API; storms layer in one recorded thunder sample. No streams, no
+account, no ads.
 
 ![Lofi Skylines](public/assets/og.png)
 
@@ -23,8 +24,9 @@ the Web Audio API. No samples, no streams, no account, no ads.
   tracks, and ten focused-EDM tracks. Every track has its own tempo, key
   transposition, chord progression, melody density, and drum recipe.
 - **Real synthesis, not samples:** Rhodes chords, felt piano, pads, synth
-  stabs, arpeggios, bass, drums, vinyl crackle, and weather ambience are
-  scheduled live with the Web Audio API.
+  stabs, arpeggios, bass, drums, vinyl crackle and weather ambience are
+  scheduled live with the Web Audio API. The thunder strike is a recorded
+  sample layered into the storm mix.
 - **A real playlist:** Next plays the next track immediately, auto-advance
   keeps the current mood, and the library lets you jump to any of the 30.
 - **Seven weather sound beds:** rain, storm, snow, breeze, autumn, fog and a
@@ -166,6 +168,10 @@ If this helps you focus, you can keep the night running:
 Design inspiration: [Lofi Cities](https://loficities.com) by Safa El Mali.
 This is an independent, from-scratch homage; it does not include any assets
 from the original site. All pixel art in this project is drawn in code, and
-all audio is synthesized live.
+the music is synthesized live.
+
+Thunder sample: **“Thunder Strike” by Universfield**, via
+[Pixabay](https://pixabay.com/sound-effects/), used under the Pixabay Content
+License. The sample lives at `public/assets/thunder-strike.mp3`.
 
 MIT licensed. See [LICENSE](LICENSE).

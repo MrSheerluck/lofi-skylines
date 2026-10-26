@@ -229,6 +229,9 @@ export class LofiEngine {
     this.muted = false;
     this.seed = 1;
     this.recipe = null;
+    this.thunderBuffer = null;
+    this.thunderBufferPromise = null;
+    this.thunderSampleUrl = "/assets/thunder-strike.mp3";
     this.step = 0;
     this.nextStepTime = 0;
     this.timer = 0;
@@ -247,6 +250,7 @@ export class LofiEngine {
     if (!AudioContextClass) throw new Error("Web Audio is not supported in this browser.");
     this.ctx = new AudioContextClass({ latencyHint: "playback" });
     this.buildGraph();
+    await this.loadThunderSample();
     this.buildAmbience();
     this.startVinyl();
     this.buildSong();
@@ -352,6 +356,22 @@ export class LofiEngine {
     }
     this.noise.set(key, buffer);
     return buffer;
+  }
+
+  async loadThunderSample() {
+    if (this.thunderBuffer) return;
+    if (!this.thunderBufferPromise) {
+      this.thunderBufferPromise = (async () => {
+        const response = await fetch(this.thunderSampleUrl, { cache: "force-cache" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const bytes = await response.arrayBuffer();
+        this.thunderBuffer = await this.ctx.decodeAudioData(bytes);
+      })().catch((error) => {
+        console.warn("Thunder sample unavailable; using synthesized fallback.", error);
+        this.thunderBuffer = null;
+      });
+    }
+    await this.thunderBufferPromise;
   }
 
   buildAmbience() {
@@ -528,6 +548,11 @@ export class LofiEngine {
       bed.linearRampToValueAtTime(1, time + 1.9);
     }
 
+    if (this.thunderBuffer) {
+      this.scheduleThunderSample(time, { power, isStrong, background });
+      return;
+    }
+
     const source = ctx.createBufferSource();
     source.buffer = this.noiseBuffer(3.2, true);
     const filter = ctx.createBiquadFilter();
@@ -609,6 +634,42 @@ export class LofiEngine {
       body.start(time + 0.05);
       body.stop(time + 1.9);
     }
+  }
+
+  scheduleThunderSample(time, { power, isStrong, background }) {
+    const ctx = this.ctx;
+    const buffer = this.thunderBuffer;
+    if (!ctx || !buffer || !this.thunderBus) return;
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.playbackRate.value = background ? 0.9 : isStrong ? 1 : 0.96;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = background ? 650 : isStrong ? 9000 : 1400;
+    filter.Q.value = 0.4;
+
+    const gain = ctx.createGain();
+    const base = background ? 0.9 : isStrong ? 1.05 : 0.8;
+    const level = Math.max(0.03, base * power);
+    const offset = background
+      ? Math.min(3.2, Math.max(0, buffer.duration * 0.3))
+      : 0;
+    const available = Math.max(0.5, buffer.duration - offset);
+    const duration = Math.min(background ? 5.5 : 9.2, available);
+    const attack = 0.015;
+    const fadeStart = time + Math.max(attack + 0.1, duration - 0.8);
+
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(level, time + attack);
+    gain.gain.setValueAtTime(level, fadeStart);
+    gain.gain.linearRampToValueAtTime(0.0001, time + duration);
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.thunderBus);
+    source.start(time, offset, duration);
   }
 
   startVinyl() {
