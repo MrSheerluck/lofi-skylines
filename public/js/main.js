@@ -408,8 +408,13 @@ function setWeather(weather, { persist = true, silent = false } = {}) {
   }
   updateWeatherUI();
   if (dialogs.cities.open) renderCityGrid();
-  if (weather === "storm") startStormLoop();
-  else stopStormLoop();
+  if (weather === "storm") {
+    if (!state.citySounds) setCitySounds(true, { silent: true });
+    startStormLoop();
+    if (!state.started && !state.playing) togglePlay();
+  } else {
+    stopStormLoop();
+  }
   if (!silent) showToast(`Weather · ${WEATHER_BY_ID[weather].label}`);
 }
 

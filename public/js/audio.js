@@ -290,6 +290,16 @@ export class LofiEngine {
     this.ambienceBus.gain.value = this.citySounds ? curve(this.ambienceVol) * 0.95 : 0;
     this.ambienceBus.connect(highpass);
 
+    // Rain/wind/fog go through the weather bed so a thunderclap can duck them
+    // without touching the thunder itself.
+    this.weatherBed = ctx.createGain();
+    this.weatherBed.gain.value = 1;
+    this.weatherBed.connect(this.ambienceBus);
+
+    this.thunderBus = ctx.createGain();
+    this.thunderBus.gain.value = 2.2;
+    this.thunderBus.connect(this.ambienceBus);
+
     const impulseLength = Math.floor(ctx.sampleRate * 2.6);
     const impulse = ctx.createBuffer(2, impulseLength, ctx.sampleRate);
     for (let channel = 0; channel < 2; channel += 1) {
@@ -358,7 +368,7 @@ export class LofiEngine {
       gain.gain.value = gainValue;
       source.connect(filter);
       filter.connect(gain);
-      gain.connect(this.ambienceBus);
+      gain.connect(this.weatherBed);
       source.start();
       return { source, filter, gain };
     };
@@ -433,7 +443,7 @@ export class LofiEngine {
     const targets = {
       clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3, leaves: 0, fog: 0 },
       rain: { rain: 0.72, patter: 0.38, wind: 0.06, hush: 0, hum: 0.08, leaves: 0, fog: 0.025 },
-      storm: { rain: 1.0, patter: 0.55, wind: 0.28, hush: 0, hum: 0.04, leaves: 0.03, fog: 0.06 },
+      storm: { rain: 0.8, patter: 0.34, wind: 0.2, hush: 0, hum: 0.04, leaves: 0.03, fog: 0.06 },
       snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1, leaves: 0, fog: 0.03 },
       breeze: { rain: 0, patter: 0, wind: 0.32, hush: 0, hum: 0.12, leaves: 0.16, fog: 0 },
       fall: { rain: 0, patter: 0, wind: 0.16, hush: 0, hum: 0.08, leaves: 0.44, fog: 0 },
@@ -508,6 +518,16 @@ export class LofiEngine {
     const power = Math.max(0.15, Math.min(1, intensity));
     const isStrong = strong ?? this.weather === "storm";
     const ctx = this.ctx;
+
+    if (isStrong && !background && this.weatherBed) {
+      const bed = this.weatherBed.gain;
+      bed.cancelScheduledValues(time);
+      bed.setValueAtTime(1, time);
+      bed.linearRampToValueAtTime(0.3, time + 0.03);
+      bed.setValueAtTime(0.3, time + 0.9);
+      bed.linearRampToValueAtTime(1, time + 1.9);
+    }
+
     const source = ctx.createBufferSource();
     source.buffer = this.noiseBuffer(3.2, true);
     const filter = ctx.createBiquadFilter();
@@ -516,11 +536,11 @@ export class LofiEngine {
     filter.Q.value = 0.7;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.linearRampToValueAtTime((isStrong ? 0.12 : 0.06) * power, time + 0.45);
+    gain.gain.linearRampToValueAtTime((isStrong ? 0.38 : 0.18) * power, time + 0.45);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + 3.2);
     source.connect(filter);
     filter.connect(gain);
-    gain.connect(this.ambienceBus);
+    gain.connect(this.thunderBus);
     source.start(time);
     source.stop(time + 3.3);
 
@@ -530,10 +550,10 @@ export class LofiEngine {
     rumble.frequency.exponentialRampToValueAtTime(34, time + 2.2);
     const rumbleGain = ctx.createGain();
     rumbleGain.gain.setValueAtTime(0.0001, time);
-    rumbleGain.gain.linearRampToValueAtTime((isStrong ? 0.042 : 0.025) * power, time + 0.5);
+    rumbleGain.gain.linearRampToValueAtTime((isStrong ? 0.13 : 0.08) * power, time + 0.5);
     rumbleGain.gain.exponentialRampToValueAtTime(0.0001, time + 2.6);
     rumble.connect(rumbleGain);
-    rumbleGain.connect(this.ambienceBus);
+    rumbleGain.connect(this.thunderBus);
     rumble.start(time);
     rumble.stop(time + 2.7);
 
@@ -547,13 +567,30 @@ export class LofiEngine {
       crackFilter.Q.value = 0.5;
       const crackGain = ctx.createGain();
       crackGain.gain.setValueAtTime(0.0001, time);
-      crackGain.gain.linearRampToValueAtTime(0.09 * power, time + 0.012);
+      crackGain.gain.linearRampToValueAtTime(0.34 * power, time + 0.012);
       crackGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.46);
       crack.connect(crackFilter);
       crackFilter.connect(crackGain);
-      crackGain.connect(this.ambienceBus);
+      crackGain.connect(this.thunderBus);
       crack.start(time);
       crack.stop(time + 0.55);
+
+      // A second, lower crack makes the strike read as a full thunderclap.
+      const crack2 = ctx.createBufferSource();
+      crack2.buffer = this.noiseBuffer(0.4);
+      const crack2Filter = ctx.createBiquadFilter();
+      crack2Filter.type = "bandpass";
+      crack2Filter.frequency.value = 720;
+      crack2Filter.Q.value = 0.55;
+      const crack2Gain = ctx.createGain();
+      crack2Gain.gain.setValueAtTime(0.0001, time + 0.16);
+      crack2Gain.gain.linearRampToValueAtTime(0.22 * power, time + 0.18);
+      crack2Gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.72);
+      crack2.connect(crack2Filter);
+      crack2Filter.connect(crack2Gain);
+      crack2Gain.connect(this.thunderBus);
+      crack2.start(time + 0.16);
+      crack2.stop(time + 0.8);
 
       // A mid-frequency body so the thunder carries on small speakers too.
       const body = ctx.createBufferSource();
@@ -564,11 +601,11 @@ export class LofiEngine {
       bodyFilter.Q.value = 0.6;
       const bodyGain = ctx.createGain();
       bodyGain.gain.setValueAtTime(0.0001, time);
-      bodyGain.gain.linearRampToValueAtTime(0.075 * power, time + 0.08);
+      bodyGain.gain.linearRampToValueAtTime(0.22 * power, time + 0.08);
       bodyGain.gain.exponentialRampToValueAtTime(0.0001, time + 1.7);
       body.connect(bodyFilter);
       bodyFilter.connect(bodyGain);
-      bodyGain.connect(this.ambienceBus);
+      bodyGain.connect(this.thunderBus);
       body.start(time + 0.05);
       body.stop(time + 1.9);
     }
