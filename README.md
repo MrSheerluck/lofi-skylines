@@ -11,8 +11,8 @@ A small, free, open-source tribute to [Lofi Cities](https://loficities.com).
 Fourteen hand-built scenes — Tokyo, Paris, New York, London, Seoul, Rio,
 Istanbul, Cairo, Singapore, Sydney, Amsterdam, Bangkok, Dubai and Hong Kong —
 each drawn pixel by pixel on a 480 × 270 canvas. The music is synthesized with
-the Web Audio API; storms layer in one recorded thunder sample. No streams, no
-account, no ads.
+the Web Audio API; the rain ambience and thunder strikes are recorded samples.
+No streams, no account, no ads.
 
 ![Lofi Skylines](public/assets/og.png)
 
@@ -24,9 +24,8 @@ account, no ads.
   tracks, and ten focused-EDM tracks. Every track has its own tempo, key
   transposition, chord progression, melody density, and drum recipe.
 - **Real synthesis, not samples:** Rhodes chords, felt piano, pads, synth
-  stabs, arpeggios, bass, drums, vinyl crackle and weather ambience are
-  scheduled live with the Web Audio API. The thunder strike is a recorded
-  sample layered into the storm mix.
+  stabs, arpeggios, bass, drums and weather transitions are scheduled live with
+  the Web Audio API. Recorded rain and thunder samples provide the weather bed.
 - **A real playlist:** Next plays the next track immediately, auto-advance
   keeps the current mood, and the library lets you jump to any of the 30.
 - **Seven weather sound beds:** rain, storm, snow, breeze, autumn, fog and a
@@ -172,6 +171,7 @@ the music is synthesized live.
 
 Thunder sample: **“Thunder Strike” by Universfield**, via
 [Pixabay](https://pixabay.com/sound-effects/), used under the Pixabay Content
-License. The sample lives at `public/assets/thunder-strike.mp3`.
+License. Rain ambience: **“Rain & Thunder” by SoundReality**, via Pixabay.
+Both samples live under `public/assets/`.
 
 MIT licensed. See [LICENSE](LICENSE).

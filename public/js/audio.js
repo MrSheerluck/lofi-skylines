@@ -232,6 +232,11 @@ export class LofiEngine {
     this.thunderBuffer = null;
     this.thunderBufferPromise = null;
     this.thunderSampleUrl = "/assets/thunder-strike.mp3";
+    this.rainBuffer = null;
+    this.rainBufferPromise = null;
+    this.rainSampleUrl = "/assets/rain-thunder.mp3";
+    this.rainSampleSource = null;
+    this.rainSampleGain = null;
     this.step = 0;
     this.nextStepTime = 0;
     this.timer = 0;
@@ -250,8 +255,9 @@ export class LofiEngine {
     if (!AudioContextClass) throw new Error("Web Audio is not supported in this browser.");
     this.ctx = new AudioContextClass({ latencyHint: "playback" });
     this.buildGraph();
-    await this.loadThunderSample();
+    await Promise.all([this.loadThunderSample(), this.loadRainSample()]);
     this.buildAmbience();
+    this.setupRainSample();
     this.startVinyl();
     this.buildSong();
     this.nextStepTime = this.ctx.currentTime + 0.12;
@@ -374,6 +380,59 @@ export class LofiEngine {
     await this.thunderBufferPromise;
   }
 
+  async loadRainSample() {
+    if (this.rainBuffer) return;
+    if (!this.rainBufferPromise) {
+      this.rainBufferPromise = (async () => {
+        const response = await fetch(this.rainSampleUrl, { cache: "force-cache" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const bytes = await response.arrayBuffer();
+        const decoded = await this.ctx.decodeAudioData(bytes);
+        this.rainBuffer = this.makeLoopableBuffer(decoded, 1);
+      })().catch((error) => {
+        console.warn("Rain sample unavailable; using synthesized ambience.", error);
+        this.rainBuffer = null;
+      });
+    }
+    await this.rainBufferPromise;
+  }
+
+  makeLoopableBuffer(buffer, fadeSeconds = 1) {
+    const ctx = this.ctx;
+    const fadeSamples = Math.min(
+      Math.floor(fadeSeconds * buffer.sampleRate),
+      Math.floor(buffer.length / 4),
+    );
+    if (fadeSamples <= 16) return buffer;
+    const loopLength = buffer.length - fadeSamples;
+    const looped = ctx.createBuffer(buffer.numberOfChannels, loopLength, buffer.sampleRate);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
+      const source = buffer.getChannelData(channel);
+      const dest = looped.getChannelData(channel);
+      dest.set(source.subarray(0, loopLength));
+      for (let index = 0; index < fadeSamples; index += 1) {
+        const blend = index / fadeSamples;
+        dest[index] = source[index] * blend + source[loopLength + index] * (1 - blend);
+      }
+    }
+    return looped;
+  }
+
+  setupRainSample() {
+    if (!this.ctx || !this.rainBuffer || !this.weatherBed || this.rainSampleSource) return;
+    const source = this.ctx.createBufferSource();
+    source.buffer = this.rainBuffer;
+    source.loop = true;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0;
+    source.connect(gain);
+    gain.connect(this.weatherBed);
+    source.start();
+    this.rainSampleSource = source;
+    this.rainSampleGain = gain;
+    this.applyWeatherLayers();
+  }
+
   buildAmbience() {
     const ctx = this.ctx;
     const makeLayer = (filterType, frequency, q, gainValue) => {
@@ -460,15 +519,18 @@ export class LofiEngine {
   applyWeatherLayers() {
     if (!this.ctx || !this.rainLayer) return;
     const now = this.ctx.currentTime;
+    const rainBed = this.rainSampleGain
+      ? { rain: 0.24, patter: 0.12, wind: 0.04, hum: 0.03, rainSample: 1.1 }
+      : { rain: 0.72, patter: 0.38, wind: 0.06, hum: 0.08, rainSample: 0 };
     const targets = {
-      clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3, leaves: 0, fog: 0 },
-      rain: { rain: 0.72, patter: 0.38, wind: 0.06, hush: 0, hum: 0.08, leaves: 0, fog: 0.025 },
-      storm: { rain: 0.45, patter: 0.22, wind: 0.14, hush: 0, hum: 0.03, leaves: 0.02, fog: 0.05 },
-      snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1, leaves: 0, fog: 0.03 },
-      breeze: { rain: 0, patter: 0, wind: 0.32, hush: 0, hum: 0.12, leaves: 0.16, fog: 0 },
-      fall: { rain: 0, patter: 0, wind: 0.16, hush: 0, hum: 0.08, leaves: 0.44, fog: 0 },
-      fog: { rain: 0, patter: 0, wind: 0.1, hush: 0, hum: 0.18, leaves: 0, fog: 0.26 },
-    }[this.weather] || { rain: 0.5, patter: 0.2, wind: 0.08, hush: 0, hum: 0.1, leaves: 0, fog: 0 };
+      clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3, leaves: 0, fog: 0, rainSample: 0 },
+      rain: { ...rainBed, hush: 0, leaves: 0, fog: 0.02 },
+      storm: { rain: 0.3, patter: 0.15, wind: 0.1, hush: 0, hum: 0.03, leaves: 0.02, fog: 0.05, rainSample: 0.3 },
+      snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1, leaves: 0, fog: 0.03, rainSample: 0 },
+      breeze: { rain: 0, patter: 0, wind: 0.32, hush: 0, hum: 0.12, leaves: 0.16, fog: 0, rainSample: 0 },
+      fall: { rain: 0, patter: 0, wind: 0.16, hush: 0, hum: 0.08, leaves: 0.44, fog: 0, rainSample: 0 },
+      fog: { rain: 0, patter: 0, wind: 0.1, hush: 0, hum: 0.18, leaves: 0, fog: 0.26, rainSample: 0 },
+    }[this.weather] || { rain: 0.5, patter: 0.2, wind: 0.08, hush: 0, hum: 0.1, leaves: 0, fog: 0, rainSample: 0 };
 
     this.rainLayer.gain.gain.setTargetAtTime(targets.rain, now, 0.7);
     this.rainPatter.gain.gain.setTargetAtTime(targets.patter, now, 0.7);
@@ -477,6 +539,9 @@ export class LofiEngine {
     this.humLayer.gain.gain.setTargetAtTime(targets.hum, now, 0.7);
     this.leafLayer.gain.gain.setTargetAtTime(targets.leaves, now, 0.7);
     this.fogLayer.gain.gain.setTargetAtTime(targets.fog, now, 0.9);
+    if (this.rainSampleGain) {
+      this.rainSampleGain.gain.setTargetAtTime(targets.rainSample, now, 0.9);
+    }
   }
 
   playWeatherTransition(weather) {
