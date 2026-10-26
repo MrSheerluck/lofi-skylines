@@ -3280,7 +3280,6 @@ function drawWeather(ctx, weather, t, reducedMotion) {
     case "storm":
       drawRain(ctx, time, { count: 300, wind: 38, speed: 220, maxAlpha: 0.5 });
       drawFog(ctx, time, { y: 190, alpha: 0.1, height: 26, color: "#c8d6e5" });
-      if (!reducedMotion) drawLightning(ctx, t);
       break;
     case "rain":
       drawRain(ctx, time, { count: 190, wind: 24, speed: 170 });

@@ -502,19 +502,21 @@ export class LofiEngine {
     }
   }
 
-  scheduleThunder(time = this.ctx.currentTime + 0.3) {
+  scheduleThunder(time = this.ctx.currentTime + 0.3, options = {}) {
     if (!this.ctx || (this.weather !== "rain" && this.weather !== "storm")) return;
-    const strong = this.weather === "storm";
+    const { intensity = 1, strong = null, background = false } = options;
+    const power = Math.max(0.15, Math.min(1, intensity));
+    const isStrong = strong ?? this.weather === "storm";
     const ctx = this.ctx;
     const source = ctx.createBufferSource();
     source.buffer = this.noiseBuffer(3.2, true);
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = 135;
+    filter.frequency.value = background ? 115 : 145;
     filter.Q.value = 0.7;
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.linearRampToValueAtTime(strong ? 0.12 : 0.085, time + 0.45);
+    gain.gain.linearRampToValueAtTime((isStrong ? 0.12 : 0.06) * power, time + 0.45);
     gain.gain.exponentialRampToValueAtTime(0.0001, time + 3.2);
     source.connect(filter);
     filter.connect(gain);
@@ -524,18 +526,18 @@ export class LofiEngine {
 
     const rumble = ctx.createOscillator();
     rumble.type = "sine";
-    rumble.frequency.setValueAtTime(50, time);
+    rumble.frequency.setValueAtTime(background ? 42 : 50, time);
     rumble.frequency.exponentialRampToValueAtTime(34, time + 2.2);
     const rumbleGain = ctx.createGain();
     rumbleGain.gain.setValueAtTime(0.0001, time);
-    rumbleGain.gain.linearRampToValueAtTime(strong ? 0.042 : 0.03, time + 0.5);
+    rumbleGain.gain.linearRampToValueAtTime((isStrong ? 0.042 : 0.025) * power, time + 0.5);
     rumbleGain.gain.exponentialRampToValueAtTime(0.0001, time + 2.6);
     rumble.connect(rumbleGain);
     rumbleGain.connect(this.ambienceBus);
     rumble.start(time);
     rumble.stop(time + 2.7);
 
-    if (strong) {
+    if (isStrong && !background) {
       // A short crack on top of the low roll.
       const crack = ctx.createBufferSource();
       crack.buffer = this.noiseBuffer(0.35);
@@ -545,7 +547,7 @@ export class LofiEngine {
       crackFilter.Q.value = 0.5;
       const crackGain = ctx.createGain();
       crackGain.gain.setValueAtTime(0.0001, time);
-      crackGain.gain.linearRampToValueAtTime(0.09, time + 0.012);
+      crackGain.gain.linearRampToValueAtTime(0.09 * power, time + 0.012);
       crackGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.46);
       crack.connect(crackFilter);
       crackFilter.connect(crackGain);
@@ -562,7 +564,7 @@ export class LofiEngine {
       bodyFilter.Q.value = 0.6;
       const bodyGain = ctx.createGain();
       bodyGain.gain.setValueAtTime(0.0001, time);
-      bodyGain.gain.linearRampToValueAtTime(0.075, time + 0.08);
+      bodyGain.gain.linearRampToValueAtTime(0.075 * power, time + 0.08);
       bodyGain.gain.exponentialRampToValueAtTime(0.0001, time + 1.7);
       body.connect(bodyFilter);
       bodyFilter.connect(bodyGain);
@@ -670,12 +672,11 @@ export class LofiEngine {
     }
     if (
       this.citySounds &&
-      (this.weather === "rain" || this.weather === "storm") &&
+      this.weather === "rain" &&
       now >= this.nextThunderAt
     ) {
       this.scheduleThunder(now + 0.2 + Math.random() * 1.2);
-      this.nextThunderAt =
-        now + (this.weather === "storm" ? 6 + Math.random() * 10 : 22 + Math.random() * 30);
+      this.nextThunderAt = now + 22 + Math.random() * 30;
     }
   }
 
@@ -1127,10 +1128,6 @@ export class LofiEngine {
     if (this.nextStepTime < this.ctx.currentTime) {
       this.nextStepTime = this.ctx.currentTime + 0.06;
     }
-    if (this.weather === "storm") {
-      this.nextThunderAt = this.ctx.currentTime + 1.2 + Math.random() * 2;
-      this.scheduleThunder(this.ctx.currentTime + 1.3);
-    }
   }
 
   async pause() {
@@ -1207,10 +1204,8 @@ export class LofiEngine {
     this.applyWeatherLayers();
     if (this.ctx) {
       const now = this.ctx.currentTime;
-      if (weather === "rain" || weather === "storm") {
-        this.nextThunderAt =
-          now + (weather === "storm" ? 2 + Math.random() * 5 : 5 + Math.random() * 9);
-        if (weather === "storm" && this.playing) this.scheduleThunder(now + 0.35);
+      if (weather === "rain") {
+        this.nextThunderAt = now + 5 + Math.random() * 9;
       }
       if (weather === "clear") this.nextCricketAt = now + 1.2 + Math.random() * 2.4;
     }

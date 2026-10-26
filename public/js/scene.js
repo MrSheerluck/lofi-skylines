@@ -1,4 +1,4 @@
-import { W, H, pixelText } from "./pixel.js";
+import { W, H, pixelText, line, mulberry32 } from "./pixel.js";
 import { drawScene } from "./scenes.js";
 import { getCity } from "./cities.js";
 
@@ -13,6 +13,7 @@ export class Scene {
     this.last = 0;
     this.raf = 0;
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.lightning = null;
     this.resize = this.resize.bind(this);
     this.loop = this.loop.bind(this);
 
@@ -68,6 +69,68 @@ export class Scene {
 
   draw() {
     drawScene(this.ctx, this.cityId, this.t, this.weather, this.reducedMotion);
+    this.drawLightningOverlay();
+  }
+
+  flashLightning(intensity = 1, { background = false } = {}) {
+    if (this.reducedMotion) return;
+    this.lightning = {
+      at: this.t,
+      intensity: Math.max(0.1, Math.min(1, intensity)),
+      background,
+      seed: Math.random() * 1000,
+    };
+  }
+
+  drawLightningOverlay() {
+    const flash = this.lightning;
+    if (!flash) return;
+    if (this.weather !== "storm") {
+      this.lightning = null;
+      return;
+    }
+
+    const age = this.t - flash.at;
+    if (age > 0.6) {
+      this.lightning = null;
+      return;
+    }
+
+    let alpha = 0;
+    if (age < 0.08) alpha = 0.2;
+    else if (age > 0.12 && age < 0.18) alpha = 0.1;
+    else if (age > 0.26 && age < 0.32) alpha = 0.05;
+    if (flash.background) alpha *= 0.35;
+    alpha *= flash.intensity;
+
+    const ctx = this.ctx;
+    if (alpha > 0.002) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = "#eaf7ff";
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    if (!flash.background && flash.intensity > 0.4 && age < 0.16) {
+      const random = mulberry32(flash.seed);
+      let x = 60 + random() * 360;
+      let y = 18 + random() * 20;
+      ctx.save();
+      ctx.globalAlpha = 0.55 * flash.intensity * (1 - age / 0.18);
+      ctx.fillStyle = "#f2fbff";
+      for (let step = 0; step < 9; step += 1) {
+        const nx = x + (random() * 2 - 1) * 13;
+        const ny = y + 8 + random() * 9;
+        line(ctx, x, y, nx, ny, "#f2fbff");
+        x = nx;
+        y = ny;
+        if (y > 160) break;
+      }
+      ctx.globalAlpha = 0.18;
+      ctx.fillRect(Math.round(x) - 8, Math.round(y), 17, 3);
+      ctx.restore();
+    }
   }
 
   setCity(cityId) {

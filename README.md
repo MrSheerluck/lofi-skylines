@@ -28,10 +28,11 @@ the Web Audio API. No samples, no streams, no account, no ads.
 - **A real playlist:** Next plays the next track immediately, auto-advance
   keeps the current mood, and the library lets you jump to any of the 30.
 - **Seven weather sound beds:** rain, storm, snow, breeze, autumn, fog and a
-  clear night. Rain and storm bring thunder (storms get frequent cracks and
-  rolls), snow brings wind and hush, autumn rustles, fog muffles the city, and
-  clear nights get a low hum and crickets. Weather changes crossfade the
-  ambience and add a short transition.
+  clear night. Storms pair every lightning flash with a thunderclap after a
+  distance-based delay — close strikes crack, distant ones roll — plus softer
+  background thunder with no visible strike. Snow brings wind and hush, autumn
+  rustles, fog muffles the city, and clear nights get a low hum and crickets.
+  Weather changes crossfade the ambience and add a short transition.
 - **A cycling weather chip** — click it or press `W` to step through all seven
   weathers with their scenes and sounds.
 - **A cycling city chip** — click it to move through all six cities one by one,

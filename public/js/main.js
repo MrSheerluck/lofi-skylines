@@ -121,6 +121,7 @@ const state = {
   started: false,
   tour: false,
   tourTimer: 0,
+  stormTimer: 0,
   track: initialTrack,
   queue: upcomingTracks(initialTrack, 4),
   libraryFilter: "all",
@@ -407,7 +408,47 @@ function setWeather(weather, { persist = true, silent = false } = {}) {
   }
   updateWeatherUI();
   if (dialogs.cities.open) renderCityGrid();
+  if (weather === "storm") startStormLoop();
+  else stopStormLoop();
   if (!silent) showToast(`Weather · ${WEATHER_BY_ID[weather].label}`);
+}
+
+function stopStormLoop() {
+  if (state.stormTimer) {
+    window.clearTimeout(state.stormTimer);
+    state.stormTimer = 0;
+  }
+}
+
+function startStormLoop() {
+  stopStormLoop();
+  if (state.weather !== "storm") return;
+  state.stormTimer = window.setTimeout(stormTick, 700 + Math.random() * 900);
+}
+
+function stormTick() {
+  state.stormTimer = 0;
+  if (state.weather !== "storm") return;
+  triggerStormEvent();
+  state.stormTimer = window.setTimeout(stormTick, 8000 + Math.random() * 9000);
+}
+
+function triggerStormEvent() {
+  if (state.weather !== "storm") return;
+  const isStrike = Math.random() < 0.7;
+  const distance = Math.random();
+  const intensity = isStrike ? 1 - distance * 0.6 : 0.18;
+  const delay = isStrike ? 0.35 + distance * 2.3 : 1 + distance * 2.5;
+
+  scene.flashLightning(intensity, { background: !isStrike });
+
+  if (audio.ctx && audio.playing && state.citySounds) {
+    audio.scheduleThunder(audio.ctx.currentTime + delay, {
+      intensity: isStrike ? 1 - distance * 0.55 : 0.35,
+      strong: isStrike && distance < 0.55,
+      background: !isStrike,
+    });
+  }
 }
 
 function cycleWeather() {
@@ -495,6 +536,7 @@ async function togglePlay() {
     await audio.play();
     state.started = true;
     state.playing = true;
+    if (state.weather === "storm") startStormLoop();
     if (state.trackRemaining <= 0) state.trackRemaining = trackDurationMs();
     armTrackTimer(state.trackRemaining);
     updatePlayUI();
@@ -1053,6 +1095,7 @@ function init() {
   applyCityUI();
   updatePlayUI();
   bindUI();
+  if (state.weather === "storm") startStormLoop();
   updateClock();
   window.setInterval(updateClock, 1000);
   if (new URLSearchParams(location.search).has("debug")) {
@@ -1065,6 +1108,7 @@ function init() {
       playCatalogTrack,
       armTrackTimer,
       trackDurationMs,
+      triggerStormEvent,
     };
   }
   requestAnimationFrame(() => document.body.classList.add("is-ready"));
