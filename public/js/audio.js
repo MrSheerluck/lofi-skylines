@@ -301,7 +301,7 @@ export class LofiEngine {
     this.weatherBed.connect(this.ambienceBus);
 
     this.thunderBus = ctx.createGain();
-    this.thunderBus.gain.value = 2.2;
+    this.thunderBus.gain.value = 2.6;
     this.thunderBus.connect(this.ambienceBus);
 
     const impulseLength = Math.floor(ctx.sampleRate * 2.6);
@@ -463,7 +463,7 @@ export class LofiEngine {
     const targets = {
       clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3, leaves: 0, fog: 0 },
       rain: { rain: 0.72, patter: 0.38, wind: 0.06, hush: 0, hum: 0.08, leaves: 0, fog: 0.025 },
-      storm: { rain: 0.8, patter: 0.34, wind: 0.2, hush: 0, hum: 0.04, leaves: 0.03, fog: 0.06 },
+      storm: { rain: 0.45, patter: 0.22, wind: 0.14, hush: 0, hum: 0.03, leaves: 0.02, fog: 0.05 },
       snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1, leaves: 0, fog: 0.03 },
       breeze: { rain: 0, patter: 0, wind: 0.32, hush: 0, hum: 0.12, leaves: 0.16, fog: 0 },
       fall: { rain: 0, patter: 0, wind: 0.16, hush: 0, hum: 0.08, leaves: 0.44, fog: 0 },
@@ -539,17 +539,18 @@ export class LofiEngine {
     const isStrong = strong ?? this.weather === "storm";
     const ctx = this.ctx;
 
-    if (isStrong && !background && this.weatherBed) {
+    // Every thunder event ducks the rain bed so the strike stays legible.
+    if (this.weatherBed) {
       const bed = this.weatherBed.gain;
       bed.cancelScheduledValues(time);
       bed.setValueAtTime(1, time);
-      bed.linearRampToValueAtTime(0.3, time + 0.03);
-      bed.setValueAtTime(0.3, time + 0.9);
-      bed.linearRampToValueAtTime(1, time + 1.9);
+      bed.linearRampToValueAtTime(0.22, time + 0.03);
+      bed.setValueAtTime(0.22, time + 1.1);
+      bed.linearRampToValueAtTime(1, time + 2.2);
     }
 
     if (this.thunderBuffer) {
-      this.scheduleThunderSample(time, { power, isStrong, background });
+      this.scheduleThunderSample(time);
       return;
     }
 
@@ -636,29 +637,18 @@ export class LofiEngine {
     }
   }
 
-  scheduleThunderSample(time, { power, isStrong, background }) {
+  scheduleThunderSample(time) {
     const ctx = this.ctx;
     const buffer = this.thunderBuffer;
     if (!ctx || !buffer || !this.thunderBus) return;
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
-    source.playbackRate.value = background ? 0.9 : isStrong ? 1 : 0.96;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = background ? 650 : isStrong ? 9000 : 1400;
-    filter.Q.value = 0.4;
 
     const gain = ctx.createGain();
-    const base = background ? 0.9 : isStrong ? 1.05 : 0.8;
-    const level = Math.max(0.03, base * power);
-    const offset = background
-      ? Math.min(3.2, Math.max(0, buffer.duration * 0.3))
-      : 0;
-    const available = Math.max(0.5, buffer.duration - offset);
-    const duration = Math.min(background ? 5.5 : 9.2, available);
-    const attack = 0.015;
+    const level = 1.25;
+    const duration = Math.min(9.2, buffer.duration);
+    const attack = 0.012;
     const fadeStart = time + Math.max(attack + 0.1, duration - 0.8);
 
     gain.gain.setValueAtTime(0.0001, time);
@@ -666,10 +656,9 @@ export class LofiEngine {
     gain.gain.setValueAtTime(level, fadeStart);
     gain.gain.linearRampToValueAtTime(0.0001, time + duration);
 
-    source.connect(filter);
-    filter.connect(gain);
+    source.connect(gain);
     gain.connect(this.thunderBus);
-    source.start(time, offset, duration);
+    source.start(time, 0, duration);
   }
 
   startVinyl() {

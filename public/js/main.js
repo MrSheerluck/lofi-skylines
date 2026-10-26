@@ -442,7 +442,7 @@ function triggerStormEvent() {
   if (state.weather !== "storm") return;
   const isStrike = Math.random() < 0.7;
   const distance = Math.random();
-  const intensity = isStrike ? 1 - distance * 0.6 : 0.18;
+  const intensity = isStrike ? 1 - distance * 0.6 : 0.4;
   const delay = isStrike ? 0.35 + distance * 2.3 : 1 + distance * 2.5;
 
   scene.flashLightning(intensity, { background: !isStrike });
