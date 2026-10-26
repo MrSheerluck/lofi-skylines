@@ -545,13 +545,30 @@ export class LofiEngine {
       crackFilter.Q.value = 0.5;
       const crackGain = ctx.createGain();
       crackGain.gain.setValueAtTime(0.0001, time);
-      crackGain.gain.linearRampToValueAtTime(0.055, time + 0.012);
-      crackGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.32);
+      crackGain.gain.linearRampToValueAtTime(0.09, time + 0.012);
+      crackGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.46);
       crack.connect(crackFilter);
       crackFilter.connect(crackGain);
       crackGain.connect(this.ambienceBus);
       crack.start(time);
-      crack.stop(time + 0.4);
+      crack.stop(time + 0.55);
+
+      // A mid-frequency body so the thunder carries on small speakers too.
+      const body = ctx.createBufferSource();
+      body.buffer = this.noiseBuffer(1.9);
+      const bodyFilter = ctx.createBiquadFilter();
+      bodyFilter.type = "bandpass";
+      bodyFilter.frequency.value = 420;
+      bodyFilter.Q.value = 0.6;
+      const bodyGain = ctx.createGain();
+      bodyGain.gain.setValueAtTime(0.0001, time);
+      bodyGain.gain.linearRampToValueAtTime(0.075, time + 0.08);
+      bodyGain.gain.exponentialRampToValueAtTime(0.0001, time + 1.7);
+      body.connect(bodyFilter);
+      bodyFilter.connect(bodyGain);
+      bodyGain.connect(this.ambienceBus);
+      body.start(time + 0.05);
+      body.stop(time + 1.9);
     }
   }
 
@@ -1109,6 +1126,10 @@ export class LofiEngine {
     this.playing = true;
     if (this.nextStepTime < this.ctx.currentTime) {
       this.nextStepTime = this.ctx.currentTime + 0.06;
+    }
+    if (this.weather === "storm") {
+      this.nextThunderAt = this.ctx.currentTime + 1.2 + Math.random() * 2;
+      this.scheduleThunder(this.ctx.currentTime + 1.3);
     }
   }
 
