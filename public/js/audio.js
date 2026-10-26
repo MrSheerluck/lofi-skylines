@@ -535,20 +535,23 @@ export class LofiEngine {
     fogLfo.start();
 
     this.nextCricketAt = ctx.currentTime + 2 + Math.random() * 3;
-    this.nextThunderAt = ctx.currentTime + 9 + Math.random() * 14;
     this.applyWeatherLayers();
   }
 
   applyWeatherLayers() {
     if (!this.ctx || !this.rainLayer) return;
     const now = this.ctx.currentTime;
-    const rainBed = this.rainSampleGain
-      ? { rain: 0.24, patter: 0.12, wind: 0.04, hum: 0.03, rainSample: 1.1 }
+    const rainSampleReady = Boolean(this.rainSampleGain);
+    const rainBed = rainSampleReady
+      ? { rain: 0, patter: 0, wind: 0, hum: 0, rainSample: 1.1 }
       : { rain: 0.72, patter: 0.38, wind: 0.06, hum: 0.08, rainSample: 0 };
+    const stormBed = rainSampleReady
+      ? { rain: 0, patter: 0, wind: 0, hush: 0, hum: 0, leaves: 0, fog: 0, rainSample: 0.85 }
+      : { rain: 0.3, patter: 0.15, wind: 0.1, hush: 0, hum: 0.03, leaves: 0.02, fog: 0.05, rainSample: 0 };
     const targets = {
       clear: { rain: 0, patter: 0, wind: 0.05, hush: 0, hum: 0.3, leaves: 0, fog: 0, rainSample: 0 },
-      rain: { ...rainBed, hush: 0, leaves: 0, fog: 0.02 },
-      storm: { rain: 0.3, patter: 0.15, wind: 0.1, hush: 0, hum: 0.03, leaves: 0.02, fog: 0.05, rainSample: 0.3 },
+      rain: { ...rainBed, hush: 0, leaves: 0, fog: 0 },
+      storm: stormBed,
       snow: { rain: 0, patter: 0, wind: 0.55, hush: 0.07, hum: 0.1, leaves: 0, fog: 0.03, rainSample: 0 },
       breeze: { rain: 0, patter: 0, wind: 0.32, hush: 0, hum: 0.12, leaves: 0.16, fog: 0, rainSample: 0 },
       fall: { rain: 0, patter: 0, wind: 0.16, hush: 0, hum: 0.08, leaves: 0.44, fog: 0, rainSample: 0 },
@@ -847,18 +850,6 @@ export class LofiEngine {
     if (this.citySounds && this.weather === "clear" && now >= this.nextCricketAt) {
       this.scheduleCricket(now + 0.12 + Math.random() * 0.2);
       this.nextCricketAt = now + 1.8 + Math.random() * 3.8;
-    }
-    if (
-      this.citySounds &&
-      this.weather === "rain" &&
-      now >= this.nextThunderAt
-    ) {
-      this.scheduleThunder(now + 0.2 + Math.random() * 1.2, {
-        intensity: 0.6,
-        strong: false,
-        background: true,
-      });
-      this.nextThunderAt = now + 22 + Math.random() * 30;
     }
   }
 
@@ -1385,13 +1376,11 @@ export class LofiEngine {
     this.weather = weather;
     this.applyWeatherLayers();
     if (this.ctx) {
-      const now = this.ctx.currentTime;
-      if (weather === "rain") {
-        this.nextThunderAt = now + 5 + Math.random() * 9;
-      }
-      if (weather === "clear") this.nextCricketAt = now + 1.2 + Math.random() * 2.4;
+      if (weather === "clear") this.nextCricketAt = this.ctx.currentTime + 1.2 + Math.random() * 2.4;
     }
-    if (this.ctx && this.playing) this.playWeatherTransition(weather);
+    if (this.ctx && this.playing && weather !== "rain" && weather !== "storm") {
+      this.playWeatherTransition(weather);
+    }
   }
 
   setCitySounds(enabled) {

@@ -29,11 +29,12 @@ No streams, no account, no ads.
 - **A real playlist:** Next plays the next track immediately, auto-advance
   keeps the current mood, and the library lets you jump to any of the 30.
 - **Seven weather sound beds:** rain, storm, snow, breeze, autumn, fog and a
-  clear night. Every storm thunder event uses the same recorded strike at a
-  consistent level, while distance changes when the thunder arrives. The rain
-  bed ducks beneath it. Snow brings wind and hush, autumn rustles, fog muffles
-  the city, and clear nights get a low hum and crickets. Weather changes
-  crossfade the ambience and add a short transition.
+  clear night. Rain and storm use the supplied rain-thunder recording as the
+  sole rain bed — no synthesized rain is mixed in. Every storm thunder event
+  uses the same recorded strike at a consistent level, while distance changes
+  when the thunder arrives; the rain bed ducks beneath it. Snow brings wind and
+  hush, autumn rustles, fog muffles the city, and clear nights get a low hum and
+  crickets. Weather changes crossfade the ambience.
 - **A cycling weather chip** — click it or press `W` to step through all seven
   weathers with their scenes and sounds.
 - **A cycling city chip** — click it to move through all six cities one by one,
