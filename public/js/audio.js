@@ -237,6 +237,9 @@ export class LofiEngine {
     this.rainSampleUrl = "/assets/rain-thunder.mp3";
     this.rainSampleSource = null;
     this.rainSampleGain = null;
+    this.backgroundThunderBuffer = null;
+    this.backgroundThunderPromise = null;
+    this.backgroundThunderUrl = "/assets/background-thunder.mp3";
     this.step = 0;
     this.nextStepTime = 0;
     this.timer = 0;
@@ -255,7 +258,11 @@ export class LofiEngine {
     if (!AudioContextClass) throw new Error("Web Audio is not supported in this browser.");
     this.ctx = new AudioContextClass({ latencyHint: "playback" });
     this.buildGraph();
-    await Promise.all([this.loadThunderSample(), this.loadRainSample()]);
+    await Promise.all([
+      this.loadThunderSample(),
+      this.loadRainSample(),
+      this.loadBackgroundThunderSample(),
+    ]);
     this.buildAmbience();
     this.setupRainSample();
     this.startVinyl();
@@ -395,6 +402,22 @@ export class LofiEngine {
       });
     }
     await this.rainBufferPromise;
+  }
+
+  async loadBackgroundThunderSample() {
+    if (this.backgroundThunderBuffer) return;
+    if (!this.backgroundThunderPromise) {
+      this.backgroundThunderPromise = (async () => {
+        const response = await fetch(this.backgroundThunderUrl, { cache: "force-cache" });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const bytes = await response.arrayBuffer();
+        this.backgroundThunderBuffer = await this.ctx.decodeAudioData(bytes);
+      })().catch((error) => {
+        console.warn("Background thunder unavailable; using the strike sample.", error);
+        this.backgroundThunderBuffer = null;
+      });
+    }
+    await this.backgroundThunderPromise;
   }
 
   makeLoopableBuffer(buffer, fadeSeconds = 1) {
@@ -615,7 +638,7 @@ export class LofiEngine {
     }
 
     if (this.thunderBuffer) {
-      this.scheduleThunderSample(time);
+      this.scheduleThunderSample(time, { background });
       return;
     }
 
@@ -702,17 +725,20 @@ export class LofiEngine {
     }
   }
 
-  scheduleThunderSample(time) {
+  scheduleThunderSample(time, { background = false } = {}) {
     const ctx = this.ctx;
-    const buffer = this.thunderBuffer;
+    const buffer =
+      background && this.backgroundThunderBuffer
+        ? this.backgroundThunderBuffer
+        : this.thunderBuffer;
     if (!ctx || !buffer || !this.thunderBus) return;
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
 
     const gain = ctx.createGain();
-    const level = 1.25;
-    const duration = Math.min(9.2, buffer.duration);
+    const level = background ? 0.9 : 1.25;
+    const duration = Math.min(background ? 5.8 : 9.2, buffer.duration);
     const attack = 0.012;
     const fadeStart = time + Math.max(attack + 0.1, duration - 0.8);
 
@@ -827,7 +853,11 @@ export class LofiEngine {
       this.weather === "rain" &&
       now >= this.nextThunderAt
     ) {
-      this.scheduleThunder(now + 0.2 + Math.random() * 1.2);
+      this.scheduleThunder(now + 0.2 + Math.random() * 1.2, {
+        intensity: 0.6,
+        strong: false,
+        background: true,
+      });
       this.nextThunderAt = now + 22 + Math.random() * 30;
     }
   }

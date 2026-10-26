@@ -171,7 +171,7 @@ the music is synthesized live.
 
 Thunder sample: **“Thunder Strike” by Universfield**, via
 [Pixabay](https://pixabay.com/sound-effects/), used under the Pixabay Content
-License. Rain ambience: **“Rain & Thunder” by SoundReality**, via Pixabay.
-Both samples live under `public/assets/`.
+License. Rain ambience and background thunder: **“Rain & Thunder” by
+SoundReality**, via Pixabay. Both recordings live under `public/assets/`.
 
 MIT licensed. See [LICENSE](LICENSE).
